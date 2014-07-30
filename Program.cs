@@ -13,6 +13,7 @@ namespace CsvPick
     {
         static int Main( string[] args )
         {
+            int retCode = 1;
             try
             {
                 var programArguments = new MyProgramArguments();
@@ -41,6 +42,8 @@ namespace CsvPick
                     commentIndicator: programArguments.CommentString,
                     append:           programArguments.Append,
                     forceCRLF:        programArguments.ForceCRLF );
+
+                retCode = 0;
             }
             catch( Exception ex )
             {
@@ -56,7 +59,6 @@ namespace CsvPick
                 } while( ix != null );
                 sb.Append( ex.StackTrace );
                 Console.Error.WriteLine( sb.ToString() );
-                return 1;
             }
 
             Done:
@@ -65,7 +67,7 @@ namespace CsvPick
                 Console.WriteLine( "\r\nDone.  Hit Enter to quit" );
                 Console.ReadKey( true );
             }
-            return 0;
+            return retCode;
         }
 
 
@@ -82,10 +84,7 @@ namespace CsvPick
             var  ids = from token in tokens
                        let id = (int) Convert.ChangeType( token.Trim(), typeof( int ) )
                        where id >= 0
-                       orderby id
                        select id;
-
-            ids = ids.Distinct();
 
             return ids.ToArray();
         }

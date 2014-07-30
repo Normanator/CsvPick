@@ -14,10 +14,16 @@ namespace My.Utilities
         public static string ChooseCsvColumns( string        input,
                                                DelimFinder   delimFinder = null,
                                                char          outDelim = ',',
+                                               string        formatString = null,
                                                params int [] columns )
         {
             if( input == null || columns == null || columns.Length <=0 )
                 return input;
+
+            formatString = formatString ?? 
+                           string.Join( outDelim.ToString(),
+                                        Enumerable.Range( 0, columns.Length )
+                                                  .Select( v => "{"+v.ToString()+"}" ) );
 
             char []        inChars = input.ToCharArray();
             int            len     = inChars.Length;
@@ -27,7 +33,7 @@ namespace My.Utilities
             int            end      = -1;
             int            colCur   = 0;
             int            tgtIdx   = 0;
-            StringBuilder  sb       = new StringBuilder( len );
+            var            extracts = Enumerable.Repeat( string.Empty, columns.Length ).ToArray();
 
             for( ; tgtIdx < columns.Length; ++tgtIdx )
             {
@@ -37,7 +43,7 @@ namespace My.Utilities
                     start = end + 1;
                     if( start >= len )
                     {
-                        goto append_empties;
+                        break;
                     }
 
                     //end   = Array.IndexOf( inChars, delim, start );
@@ -49,24 +55,19 @@ namespace My.Utilities
                     };
                 }
 
-                if( tgtIdx != 0 )
-                {
-                    // For 2nd+ extracted columns, add delimiter
-                    sb.Append( outDelim );
+                if( start < end )
+                { 
+                    var found = new string( inChars, start, end - start );
+                    if( !char.IsWhiteSpace(outDelim) )
+                    {
+                        found = found.Trim();
+                    }
+                    extracts[ tgtIdx ] = found;
                 }
 
-                sb.Append( inChars, start, end - start );
+            } // end for tgtIdx
 
-            }
-
-            append_empties:
-            while( tgtIdx++ < columns.Length )
-            {
-                // Missing input columns are realized as empty output columns
-                sb.Append( outDelim );
-            }
-
-            return sb.ToString();
+            return string.Format( formatString, extracts );
         }
 
 
@@ -76,15 +77,12 @@ namespace My.Utilities
                                                               char                outDelim = ',',
                                                               params int []       columns )
         {
-            if( null != columns )
-            {
-                Array.Sort( columns );
-                columns = columns.Distinct().ToArray();
-            }
+            var ordProj      = MakeOrdinalProjection( columns );
+            var formatString = ordProj.Item2.Replace( '|', outDelim );
 
             foreach( string input in inputs )
             {
-                yield return ChooseCsvColumns( input, delimFinder, outDelim, columns );
+                yield return ChooseCsvColumns( input, delimFinder, outDelim, formatString, ordProj.Item1 );
             }
         }
 
@@ -179,7 +177,39 @@ namespace My.Utilities
 
         #endregion
 
+        #region
+        /// <summary>
+        /// Given an array of field indices returns a tuple of 
+        /// sorted, distinct indices (to efficiently read) and a 
+        /// formatting string (to easily write).
+        /// The input columns can have gaps, repeats, and be un-ordered.
+        /// The format string will be zero-based and monotonic s.t. the
+        /// read fields array can be printed with it.  
+        /// </summary>
+        /// <param name="columns">An array of integers</param>
+        /// <returns>A tuple of sorted, unique integers and a format-string.</returns>
+        public static Tuple<int[],string>  MakeOrdinalProjection( int [] columns )
+        {
+            var ordered = columns.OrderBy( v => v ).Distinct().ToArray();
+            var dict    = new Dictionary<int,int>();
+    
+            for( int idx = 0; idx < ordered.Length; ++idx )
+            {
+                dict[ ordered[idx] ] = idx;
+            }
 
+            var fmtSb     = new StringBuilder();
+            var delimTemp = string.Empty; 
+            var ordinals  = columns.Select( v => dict[v] );
+            foreach( var ord in ordinals )
+            {
+                fmtSb.AppendFormat("{0}{{{1}}}", delimTemp, ord );
+                delimTemp = "|";
+            }
+
+            return Tuple.Create( ordered, fmtSb.ToString() );
+        }
+        #endregion
 
 
         public static void ProjectFields( 
