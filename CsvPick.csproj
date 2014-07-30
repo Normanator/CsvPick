@@ -43,6 +43,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="DelimFinder.cs" />
     <Compile Include="FileOps.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Handy\ProgramArguments.cs" />

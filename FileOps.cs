@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.IO;
+using CsvPick;
 
 namespace My.Utilities
 {
@@ -10,8 +11,9 @@ namespace My.Utilities
     public class  FileOps
     {
 
-        public static string ChooseCsvColumns( string input,
-                                               char   delim=',',
+        public static string ChooseCsvColumns( string        input,
+                                               DelimFinder   delimFinder = null,
+                                               char          outDelim = ',',
                                                params int [] columns )
         {
             if( input == null || columns == null || columns.Length <=0 )
@@ -19,6 +21,7 @@ namespace My.Utilities
 
             char []        inChars = input.ToCharArray();
             int            len     = inChars.Length;
+            delimFinder = delimFinder ?? new DelimFinder( ',', FieldParseType.Quoted );
 
             int            start    = 0;
             int            end      = -1;
@@ -37,7 +40,8 @@ namespace My.Utilities
                         goto append_empties;
                     }
 
-                    end   = Array.IndexOf( inChars, delim, start );
+                    //end   = Array.IndexOf( inChars, delim, start );
+                    end = delimFinder.Find( inChars, start ).First();
 
                     if( end == -1 )
                     {
@@ -48,7 +52,7 @@ namespace My.Utilities
                 if( tgtIdx != 0 )
                 {
                     // For 2nd+ extracted columns, add delimiter
-                    sb.Append( delim );
+                    sb.Append( outDelim );
                 }
 
                 sb.Append( inChars, start, end - start );
@@ -59,7 +63,7 @@ namespace My.Utilities
             while( tgtIdx++ < columns.Length )
             {
                 // Missing input columns are realized as empty output columns
-                sb.Append( delim );
+                sb.Append( outDelim );
             }
 
             return sb.ToString();
@@ -68,8 +72,9 @@ namespace My.Utilities
 
 
         public static IEnumerable<string>   ChooseCsvColumns( IEnumerable<string> inputs,
-                                                              char delim = ',',
-                                                              params int [] columns )
+                                                              DelimFinder         delimFinder = null,
+                                                              char                outDelim = ',',
+                                                              params int []       columns )
         {
             if( null != columns )
             {
@@ -79,7 +84,7 @@ namespace My.Utilities
 
             foreach( string input in inputs )
             {
-                yield return ChooseCsvColumns( input, delim, columns );
+                yield return ChooseCsvColumns( input, delimFinder, outDelim, columns );
             }
         }
 
@@ -178,13 +183,16 @@ namespace My.Utilities
 
 
         public static void ProjectFields( 
-                        string  inFile,
-                        int []  columns,
-                        string  outFile,
-                        char    delim     = ',',
-                        int     skipLines = 0,
-                        bool    append    = false,
-                        bool    forceCRLF = false )
+                        string      inFile,
+                        int []      columns,
+                        string      outFile,
+                        DelimFinder delimFinder      = null,
+                        char        outDelim         = ',',
+                        int         skipLines        = 0,
+                        int         takeLines        = -1,
+                        string      commentIndicator = "#",
+                        bool        append           = false,
+                        bool        forceCRLF        = false )
         {
             Encoding              outEncoding     = Encoding.UTF8;
             string                endOfLineMark   = Environment.NewLine;
@@ -207,16 +215,22 @@ namespace My.Utilities
                             ? endOfLineMark
                             : string.Empty;
 
-                // TODO: replace # with user-supplied comment-char
                 var lines = from line in FileOps.LinesOf( reader ).Skip( skipLines )
-                            where !line.StartsWith( "#" )
+                            where !line.StartsWith( commentIndicator )
                             select line;
-                foreach( string outline in ChooseCsvColumns( lines, delim, columns ) )
+
+                int ctOut = 0;
+                foreach( string outline in ChooseCsvColumns( lines, delimFinder, outDelim, columns ) )
                 {
+                    if( ctOut >= takeLines && takeLines >= 0 )
+                        break;
+
                     writer.Write( prewrite );
                     writer.Write( outline );
 
                     prewrite = endOfLineMark;
+
+                    ++ctOut;
                 }
             }
             finally

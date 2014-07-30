@@ -27,13 +27,20 @@ namespace CsvPick
 
                 int [] columns = ToColumnArray( programArguments.FieldList );
 
+                var delimFinder = new DelimFinder( 
+                                       programArguments.Delimiter,
+                                       programArguments.FieldParseType );
+
                 FileOps.ProjectFields( programArguments.InFile,
                     columns,
                     programArguments.OutFile,
-                    programArguments.Delimiter,
-                    skipLines: programArguments.SkipLines,
-                    append:    programArguments.Append,
-                    forceCRLF: programArguments.ForceCRLF );
+                    delimFinder,
+                    programArguments.OutDelimiter,
+                    skipLines:        programArguments.SkipLines,
+                    takeLines:        programArguments.TakeLines,
+                    commentIndicator: programArguments.CommentString,
+                    append:           programArguments.Append,
+                    forceCRLF:        programArguments.ForceCRLF );
             }
             catch( Exception ex )
             {
@@ -92,7 +99,8 @@ namespace CsvPick
         public MyProgramArguments() : base( caseSensitive: false )
         {
             this.HelpSummary = "CsvPick.exe\r\n" + 
-                "Allows you to extract a subset of columns from a CSV file.";
+                "Allows you to extract a subset of columns from a CSV file.\r\n" +
+                "(lines beginning with '#' are ignored)";
 
             this.Add( new ArgDef( "InFile" )
              { ShortSwitch="i", LongSwitch="inFile",
@@ -106,9 +114,20 @@ namespace CsvPick
              { ShortSwitch="f", LongSwitch="fields",
                HelpText="Comma-seperated list of fields\r\nzero-based indices.\r\nSee /c." } );
 
+            this.Add( new ArgDef( "FieldForm" )
+             { ShortSwitch="form", LongSwitch="fieldForm",
+               HelpText="Directs the parser to ignore the Delimiter (see /d) within fields forms\r\n" +
+                        "   QUOTED (double- and single-quoted strings)\r\n" + 
+                        "   JSON   (curly-brace enclosed strings)\r\n" +
+                        "(may supply both comma-seperated)" } );
+
             this.Add( new ArgDef( "Delimiter" ) 
              { ShortSwitch="d", LongSwitch="delimiter", DefaultValue=",",
                HelpText="The field delimiter character.\r\nA tab can be expressed as \\t." } );
+
+            this.Add( new ArgDef( "OutDelimiter" ) 
+             { ShortSwitch="od", LongSwitch="outDelimiter", 
+               HelpText="(optional) Field delimiter to use in output, defaults to Delimiter value" } );
 
             this.Add( new ArgDef( "Append" )
               { ShortSwitch="a", LongSwitch="append", ArgKind=ArgDef.Kind.Bool,
@@ -122,18 +141,17 @@ namespace CsvPick
             this.Add( new ArgDef( "SkipLines" )
              { ShortSwitch="skip", LongSwitch="skipLines",
                ArgKind = ArgDef.Kind.Int,  DefaultValue= (object) 0,
-               HelpText="How many lines of inFile should be skipped before parsing?" +
-                        "\r\nNOT YET IMPLEMENTED" } );
+               HelpText="How many lines of inFile should be skipped before parsing?" } );
 
-            this.Add( new ArgDef( "ShowColumns" )
-              { ShortSwitch="c", LongSwitch="columns",
-                HelpText="Shows the columns of inFile\r\nTerminates after summary" +
-                        "\r\nNOT YET IMPLEMENTED" } );
+            this.Add( new ArgDef( "TakeLines" )
+             { ShortSwitch="take", LongSwitch="takeLines",
+               ArgKind = ArgDef.Kind.Int,  DefaultValue= (object) -1,
+               HelpText="How many lines of output should be emitted?\r\n" +
+                        "(default of -1 means no limit)" } );
 
             this.Add( new ArgDef( "CommentString" )
-              { ShortSwitch="x",  LongSwitch="commentChar",
-                HelpText = "Ignore any input lines beginning with this string"  +
-                        "\r\nNOT YET IMPLEMENTED" } );
+              { ShortSwitch="cmt",  LongSwitch="commentChar", DefaultValue=(object)"#",
+                HelpText = "Ignore any input lines beginning with this string" } );
         }
 
         public string InFile
@@ -151,6 +169,11 @@ namespace CsvPick
             get { return this["FieldList"].GetString(); }
         }
 
+        public string FieldForm
+        {
+            get { return this["FieldForm"].GetString(); }
+        }
+
         public char Delimiter
         {
             get
@@ -164,9 +187,32 @@ namespace CsvPick
             }
         }
 
+        public char OutDelimiter
+        {
+            get
+            {
+                string outDelim = this["OutDelimiter"].GetString();
+
+                // Default is the same as the input-file's Delimiter
+                if( string.IsNullOrEmpty( outDelim ) )
+                    return this.Delimiter;
+                
+                if( string.CompareOrdinal( outDelim, "\\t" ) == 0 )
+                    return '\t';
+
+                return outDelim[ 0 ];
+            }
+        }
+
+
         public int SkipLines
         {
             get { return this["SkipLines"].GetInt(); }
+        }
+
+        public int TakeLines
+        {
+            get { return this["TakeLines"].GetInt(); }
         }
 
         public string CommentString
@@ -187,6 +233,26 @@ namespace CsvPick
         public bool ForceCRLF
         {
             get { return this["ForceCRLF"].GetBool(); }
+        }
+
+        public FieldParseType FieldParseType
+        {
+            get
+            { 
+                var ff = FieldParseType.Plain;
+                if( this.FieldForm == null )
+                    return ff; 
+
+                if( this.FieldForm.IndexOf("JSON",StringComparison.OrdinalIgnoreCase) > -1 )
+                {
+                    ff |= FieldParseType.Json;
+                }
+                if( this.FieldForm.IndexOf("QUOTED",StringComparison.OrdinalIgnoreCase) > -1 )
+                {
+                    ff |= CsvPick.FieldParseType.Quoted;
+                }
+                return ff;
+            }
         }
     }
 }
