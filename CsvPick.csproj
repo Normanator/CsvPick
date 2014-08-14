@@ -44,7 +44,10 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="DelimFinder.cs" />
+    <Compile Include="DelimParser.cs" />
+    <Compile Include="FieldsFormatter.cs" />
     <Compile Include="FileOps.cs" />
+    <Compile Include="NumberedLine.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Handy\ProgramArguments.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

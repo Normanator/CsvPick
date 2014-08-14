@@ -10,84 +10,6 @@ namespace My.Utilities
 
     public class  FileOps
     {
-
-        public static string ChooseCsvColumns( string        input,
-                                               DelimFinder   delimFinder = null,
-                                               char          outDelim = ',',
-                                               string        formatString = null,
-                                               params int [] columns )
-        {
-            if( input == null || columns == null || columns.Length <=0 )
-                return input;
-
-            formatString = formatString ?? 
-                           string.Join( outDelim.ToString(),
-                                        Enumerable.Range( 0, columns.Length )
-                                                  .Select( v => "{"+v.ToString()+"}" ) );
-
-            char []        inChars = input.ToCharArray();
-            int            len     = inChars.Length;
-            delimFinder = delimFinder ?? new DelimFinder( ',', FieldParseType.Quoted );
-
-            int            start    = 0;
-            int            end      = -1;
-            int            colCur   = 0;
-            int            tgtIdx   = 0;
-            var            extracts = Enumerable.Repeat( string.Empty, columns.Length ).ToArray();
-
-            for( ; tgtIdx < columns.Length; ++tgtIdx )
-            {
-                int  colTgt    = columns[ tgtIdx ];
-                for( ; colCur <= colTgt; ++colCur )
-                {
-                    start = end + 1;
-                    if( start >= len )
-                    {
-                        break;
-                    }
-
-                    //end   = Array.IndexOf( inChars, delim, start );
-                    end = delimFinder.Find( inChars, start ).First();
-
-                    if( end == -1 )
-                    {
-                        end = len;
-                    };
-                }
-
-                if( start < end )
-                { 
-                    var found = new string( inChars, start, end - start );
-                    if( !char.IsWhiteSpace(outDelim) )
-                    {
-                        found = found.Trim();
-                    }
-                    extracts[ tgtIdx ] = found;
-                }
-
-            } // end for tgtIdx
-
-            return string.Format( formatString, extracts );
-        }
-
-
-
-        public static IEnumerable<string>   ChooseCsvColumns( IEnumerable<string> inputs,
-                                                              DelimFinder         delimFinder = null,
-                                                              char                outDelim = ',',
-                                                              params int []       columns )
-        {
-            var ordProj      = MakeOrdinalProjection( columns );
-            var formatString = ordProj.Item2.Replace( '|', outDelim );
-
-            foreach( string input in inputs )
-            {
-                yield return ChooseCsvColumns( input, delimFinder, outDelim, formatString, ordProj.Item1 );
-            }
-        }
-
-
-
         public static IEnumerable<string>  LinesOf( TextReader reader )
         {
             for(;;)
@@ -177,39 +99,6 @@ namespace My.Utilities
 
         #endregion
 
-        #region
-        /// <summary>
-        /// Given an array of field indices returns a tuple of 
-        /// sorted, distinct indices (to efficiently read) and a 
-        /// formatting string (to easily write).
-        /// The input columns can have gaps, repeats, and be un-ordered.
-        /// The format string will be zero-based and monotonic s.t. the
-        /// read fields array can be printed with it.  
-        /// </summary>
-        /// <param name="columns">An array of integers</param>
-        /// <returns>A tuple of sorted, unique integers and a format-string.</returns>
-        public static Tuple<int[],string>  MakeOrdinalProjection( int [] columns )
-        {
-            var ordered = columns.OrderBy( v => v ).Distinct().ToArray();
-            var dict    = new Dictionary<int,int>();
-    
-            for( int idx = 0; idx < ordered.Length; ++idx )
-            {
-                dict[ ordered[idx] ] = idx;
-            }
-
-            var fmtSb     = new StringBuilder();
-            var delimTemp = string.Empty; 
-            var ordinals  = columns.Select( v => dict[v] );
-            foreach( var ord in ordinals )
-            {
-                fmtSb.AppendFormat("{0}{{{1}}}", delimTemp, ord );
-                delimTemp = "|";
-            }
-
-            return Tuple.Create( ordered, fmtSb.ToString() );
-        }
-        #endregion
 
 
         public static void ProjectFields( 
@@ -222,7 +111,8 @@ namespace My.Utilities
                         int         takeLines        = -1,
                         string      commentIndicator = "#",
                         bool        append           = false,
-                        bool        forceCRLF        = false )
+                        bool        forceCRLF        = false,
+                        bool        emitLineNumbers  = false )
         {
             Encoding              outEncoding     = Encoding.UTF8;
             string                endOfLineMark   = Environment.NewLine;
@@ -230,6 +120,8 @@ namespace My.Utilities
 
             System.IO.TextReader  reader = null;
             System.IO.TextWriter  writer = null;
+
+            takeLines = (takeLines < 0) ? Int32.MaxValue : takeLines;
 
             try
             {
@@ -245,22 +137,27 @@ namespace My.Utilities
                             ? endOfLineMark
                             : string.Empty;
 
-                var lines = from line in FileOps.LinesOf( reader ).Skip( skipLines )
-                            where !line.StartsWith( commentIndicator )
-                            select line;
+                var numberer  = new LineNumberer();
+                var numbLines = numberer.Map( FileOps.LinesOf( reader ) );
 
-                int ctOut = 0;
-                foreach( string outline in ChooseCsvColumns( lines, delimFinder, outDelim, columns ) )
+                var fieldList = columns.Where( v => v >= 0 ).ToArray();
+                var parser    = new DelimParser( delimFinder, fieldList, 
+                                                   trim:(!char.IsWhiteSpace(outDelim)) );
+
+                var numbRecs  = numbLines.Skip( skipLines )
+                                         .Where( nl => !nl.Line.StartsWith(commentIndicator) )
+                                         .Take( takeLines )
+                                         .SelectMany( nl => parser.ParseMany(nl) );
+
+                var outFormatter = new FieldsFormatter( columns, outDelim );                
+
+                var outLines = numbRecs.Select( (nr) => outFormatter.Format(nr) );
+                foreach( string outline in outLines )
                 {
-                    if( ctOut >= takeLines && takeLines >= 0 )
-                        break;
-
                     writer.Write( prewrite );
                     writer.Write( outline );
 
                     prewrite = endOfLineMark;
-
-                    ++ctOut;
                 }
             }
             finally

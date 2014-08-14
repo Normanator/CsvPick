@@ -61,10 +61,6 @@ namespace CsvPick
             yield return startFrom + idx + 1;
         }
 
-        public IEnumerable<int>  Find( string line )
-        {
-            return Find( line.ToCharArray(), 0 );
-        }
     }
 
     // --------------------------

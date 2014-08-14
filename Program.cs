@@ -83,7 +83,7 @@ namespace CsvPick
 
             var  ids = from token in tokens
                        let id = (int) Convert.ChangeType( token.Trim(), typeof( int ) )
-                       where id >= 0
+                       where id >= -1
                        select id;
 
             return ids.ToArray();
@@ -111,7 +111,8 @@ namespace CsvPick
 
             this.Add( new ArgDef( "FieldList" )
              { ShortSwitch="f", LongSwitch="fields",
-               HelpText="Comma-seperated list of fields\r\nzero-based indices.\r\nSee /c." } );
+               HelpText="Comma-seperated list of fields\r\nzero-based indices of the input columns.\r\n" + 
+                        "You can also use -1 to echo input line-number.  See also /c." } );
 
             this.Add( new ArgDef( "FieldForm" )
              { ShortSwitch="form", LongSwitch="fieldForm",
@@ -119,6 +120,14 @@ namespace CsvPick
                         "   QUOTED (double- and single-quoted strings)\r\n" + 
                         "   JSON   (curly-brace enclosed strings)\r\n" +
                         "(may supply both comma-seperated)" } );
+
+            this.Add( new ArgDef("LineNumbers")
+                { ShortSwitch="#", LongSwitch="lineNums", ArgKind=ArgDef.Kind.Bool,
+                  HelpText="Directs that source-file line-numbers are emitted as field0 in output." } );
+
+            this.Add( new ArgDef("ShowHeaders")
+                { ShortSwitch="h", LongSwitch="headers", ArgKind=ArgDef.Kind.Bool,
+                  HelpText="Shows the first row vertically with ordinals, useful for later -f assignment" } );
 
             this.Add( new ArgDef( "Delimiter" ) 
              { ShortSwitch="d", LongSwitch="delimiter", DefaultValue=",",
@@ -173,6 +182,11 @@ namespace CsvPick
             get { return this["FieldForm"].GetString(); }
         }
 
+        public bool LineNumbers
+        {
+            get { return this["LineNumbers"].GetBool(); }
+        }
+
         public char Delimiter
         {
             get
@@ -219,9 +233,9 @@ namespace CsvPick
             get { return this["CommentString"].GetString(); }
         }
 
-        public bool ShowColumns
+        public bool ShowHeaders
         {
-            get { return this["ShowColumns"].GetBool(); }
+            get { return this["ShowHeaders"].GetBool(); }
         }
 
         public bool Append
