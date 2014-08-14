@@ -32,7 +32,14 @@ namespace CsvPick
                                        programArguments.Delimiter,
                                        programArguments.FieldParseType );
 
-                FileOps.ProjectFields( programArguments.InFile,
+                Func<string,string> postProcess = (s) => s;
+                if( programArguments.ShowHeaders )
+                {
+                    var pp = new FieldsPivot( programArguments.OutDelimiter );
+                    postProcess = pp.AsNumberedLines;
+                }
+
+                FileOps.ProcessStreams( programArguments.InFile,
                     columns,
                     programArguments.OutFile,
                     delimFinder,
@@ -41,7 +48,8 @@ namespace CsvPick
                     takeLines:        programArguments.TakeLines,
                     commentIndicator: programArguments.CommentString,
                     append:           programArguments.Append,
-                    forceCRLF:        programArguments.ForceCRLF );
+                    forceCRLF:        programArguments.ForceCRLF,
+                    postProcess:      postProcess );
 
                 retCode = 0;
             }
@@ -93,6 +101,24 @@ namespace CsvPick
 
     // ---------------------------------------
 
+    internal class FieldsPivot
+    {
+        private char _delim;
+
+        public FieldsPivot( char delim ) {  this._delim = delim; }
+
+        public string AsNumberedLines( string line )
+        {
+            var fields = line.Split( _delim );
+            var nums   = Enumerable.Range(0, fields.Count() );
+            var nfs    = fields.Zip( nums, (f,n) => string.Format( "  {0}\t({1})", f, n ) );
+            var well   = string.Join( "\r\n", nfs );
+            return well;
+        }
+    }
+
+    // ---------------------------------------
+
     internal class MyProgramArguments : My.Utilities.ProgramArguments
     {
         public MyProgramArguments() : base( caseSensitive: false )
@@ -120,10 +146,6 @@ namespace CsvPick
                         "   QUOTED (double- and single-quoted strings)\r\n" + 
                         "   JSON   (curly-brace enclosed strings)\r\n" +
                         "(may supply both comma-seperated)" } );
-
-            this.Add( new ArgDef("LineNumbers")
-                { ShortSwitch="#", LongSwitch="lineNums", ArgKind=ArgDef.Kind.Bool,
-                  HelpText="Directs that source-file line-numbers are emitted as field0 in output." } );
 
             this.Add( new ArgDef("ShowHeaders")
                 { ShortSwitch="h", LongSwitch="headers", ArgKind=ArgDef.Kind.Bool,
@@ -174,17 +196,16 @@ namespace CsvPick
 
         public string FieldList
         {
-            get { return this["FieldList"].GetString(); }
+            get
+            { return ShowHeaders 
+                ? null
+                : this["FieldList"].GetString();
+            }
         }
 
         public string FieldForm
         {
             get { return this["FieldForm"].GetString(); }
-        }
-
-        public bool LineNumbers
-        {
-            get { return this["LineNumbers"].GetBool(); }
         }
 
         public char Delimiter
@@ -225,7 +246,11 @@ namespace CsvPick
 
         public int TakeLines
         {
-            get { return this["TakeLines"].GetInt(); }
+            get
+            { 
+                return ShowHeaders 
+                    ? 1
+                    : this["TakeLines"].GetInt(); }
         }
 
         public string CommentString

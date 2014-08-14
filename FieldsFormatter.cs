@@ -9,22 +9,40 @@ namespace CsvPick
     {
         private bool   _addLineNumbers;
         private string _formatString;
+        private bool   _passThru;
+        private string _delimStr;
 
         public FieldsFormatter( int [] columns, char outDelimiter )
         {
-            var mop = MakeOrdinalProjection( columns );
-            this._addLineNumbers = (mop.Item1.FirstOrDefault() < 0);
-            this._formatString   = mop.Item2.Replace( '|', outDelimiter );;
+            this._delimStr = new string( outDelimiter, 1 );
+
+            if( columns != null )
+            {
+                var mop = MakeOrdinalProjection( columns );
+                this._addLineNumbers = (mop.Item1.FirstOrDefault() < 0);
+                this._formatString   = mop.Item2.Replace( '|', outDelimiter );
+            }
+            else
+            {
+                this._passThru = true; 
+            }
         }
 
         public string Format( NumberedRecord nr )
         {
-            var ae = _addLineNumbers
-                      ? (new [] { nr.LineNumber.ToString() }).Concat( nr.Fields )
-                      : nr.Fields;
+            if( !this._passThru )
+            {
+                var ae = _addLineNumbers
+                          ? (new [] { nr.LineNumber.ToString() }).Concat( nr.Fields )
+                          : nr.Fields;
 
-            var outline = string.Format( _formatString, ae.ToArray() );
-            return outline; 
+                var outline = string.Format( _formatString, ae.ToArray() );
+                return outline;
+            }
+            else
+            {
+                return string.Join( this._delimStr, nr.Fields );
+            }
         }
 
 

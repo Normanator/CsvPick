@@ -8,8 +8,9 @@ using CsvPick;
 namespace My.Utilities
 {
 
-    public class  FileOps
+    public class FileOps
     {
+        #region Traversing files
         public static IEnumerable<string>  LinesOf( TextReader reader )
         {
             for(;;)
@@ -21,6 +22,7 @@ namespace My.Utilities
                 yield return line;
             }
         }
+        #endregion
 
 
         #region Interpreting files
@@ -99,20 +101,48 @@ namespace My.Utilities
 
         #endregion
 
+        public static IEnumerable<string> Projectfields(
+                        IEnumerable<string> inputLines,
+                        int []              columns,
+                        DelimFinder         delimFinder      = null,
+                        char                outDelim         = ',',
+                        int                 skipLines        = 0,
+                        int                 takeLines        = -1,
+                        string              commentIndicator = "#" )
+        {
+            var numberer  = new LineNumberer();
+            var numbLines = numberer.Map( inputLines );
 
+            var fieldList = columns != null
+                              ? columns.Where( v => v >= 0 ).ToArray()
+                              : null;
+            var parser    = new DelimParser( delimFinder, fieldList, 
+                                                trim:(!char.IsWhiteSpace(outDelim)) );
 
-        public static void ProjectFields( 
-                        string      inFile,
-                        int []      columns,
-                        string      outFile,
-                        DelimFinder delimFinder      = null,
-                        char        outDelim         = ',',
-                        int         skipLines        = 0,
-                        int         takeLines        = -1,
-                        string      commentIndicator = "#",
-                        bool        append           = false,
-                        bool        forceCRLF        = false,
-                        bool        emitLineNumbers  = false )
+            var numbRecs  = numbLines.Skip( skipLines )
+                                        .Where( nl => !nl.Line.StartsWith(commentIndicator) )
+                                        .Take( takeLines )
+                                        .SelectMany( nl => parser.ParseMany(nl) );
+
+            var outFormatter = new FieldsFormatter( columns, outDelim );                
+
+            var outLines = numbRecs.Select( (nr) => outFormatter.Format(nr) );
+
+            return outLines;
+        }
+
+        public static void ProcessStreams( 
+                        string               inFile,
+                        int []               columns,
+                        string               outFile,
+                        DelimFinder          delimFinder      = null,
+                        char                 outDelim         = ',',
+                        int                  skipLines        = 0,
+                        int                  takeLines        = -1,
+                        string               commentIndicator = "#",
+                        bool                 append           = false,
+                        bool                 forceCRLF        = false,
+                        Func<string,string>  postProcess = null )
         {
             Encoding              outEncoding     = Encoding.UTF8;
             string                endOfLineMark   = Environment.NewLine;
@@ -122,6 +152,7 @@ namespace My.Utilities
             System.IO.TextWriter  writer = null;
 
             takeLines = (takeLines < 0) ? Int32.MaxValue : takeLines;
+            if( postProcess == null ) { postProcess = (s) => s; }
 
             try
             {
@@ -137,25 +168,22 @@ namespace My.Utilities
                             ? endOfLineMark
                             : string.Empty;
 
-                var numberer  = new LineNumberer();
-                var numbLines = numberer.Map( FileOps.LinesOf( reader ) );
+                var inputLines = FileOps.LinesOf( reader );
 
-                var fieldList = columns.Where( v => v >= 0 ).ToArray();
-                var parser    = new DelimParser( delimFinder, fieldList, 
-                                                   trim:(!char.IsWhiteSpace(outDelim)) );
-
-                var numbRecs  = numbLines.Skip( skipLines )
-                                         .Where( nl => !nl.Line.StartsWith(commentIndicator) )
-                                         .Take( takeLines )
-                                         .SelectMany( nl => parser.ParseMany(nl) );
-
-                var outFormatter = new FieldsFormatter( columns, outDelim );                
-
-                var outLines = numbRecs.Select( (nr) => outFormatter.Format(nr) );
+                var outLines = Projectfields( inputLines,
+                                              columns,
+                                              delimFinder,
+                                              outDelim,
+                                              skipLines,
+                                              takeLines,
+                                              commentIndicator );
+               
                 foreach( string outline in outLines )
                 {
+                    var emitline = postProcess( outline );
+
                     writer.Write( prewrite );
-                    writer.Write( outline );
+                    writer.Write( emitline );
 
                     prewrite = endOfLineMark;
                 }
@@ -167,7 +195,7 @@ namespace My.Utilities
             }
         }
 
-
+        #region Reader and Writer Creation
         public static Tuple<TextWriter,bool> OpenOutput(
             string   outFile,
             Encoding outEncoding,
@@ -241,8 +269,9 @@ namespace My.Utilities
 
             return Tuple.Create( reader, endOfLineMark, encoding );
         }
+        #endregion
 
-    }
+    } // end class FileOps
 
 
 }
