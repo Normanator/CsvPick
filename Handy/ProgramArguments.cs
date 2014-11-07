@@ -131,7 +131,7 @@ namespace My.Utilities
                 string argToTest = args[ argnum ];
 
                 // In search of a switch, what test should we use?
-                Func<string,ArgDef,bool>  test = null;
+                Func<string,ArgDef,bool>  test = (s,_) => false;
                 if( args[ argnum ].StartsWith( "/" ) )
                 {
                     test = etest;
@@ -178,6 +178,7 @@ namespace My.Utilities
                     {
                         AddValue( current, args[ argnum ] );
                     }
+                    current = null;
                 }
 
             } // end while argnum

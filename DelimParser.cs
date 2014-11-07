@@ -64,36 +64,44 @@ namespace CsvPick
             int            nextCol  = -1;
             IList<string>  extracts = new List<string>();
 
-            for( nextCol = NextDesiredColumn( -1 ); 
-                 nextCol >= 0; 
-                 nextCol = NextDesiredColumn( nextCol ) )
+            try
             {
-                for( ; colCur <= nextCol; ++colCur )
+                for (nextCol = NextDesiredColumn(-1);
+                     nextCol >= 0;
+                     nextCol = NextDesiredColumn(nextCol))
                 {
-                    start = end + 1;
-                    if( start >= len )
+                    for (; colCur <= nextCol; ++colCur)
                     {
-                        break;
+                        start = end + 1;
+                        if (start >= len)
+                        {
+                            break;
+                        }
+
+                        end = this._finder.Find(inChars, start).First();
+
+                        if (end == -1)
+                        {
+                            end = len;
+                        };
                     }
 
-                    end = this._finder.Find( inChars, start ).First();
+                    if (start > end || start >= len)
+                        break;
 
-                    if( end == -1 )
+                    var found = new string(inChars, start, end - start);
+                    if (this._trimFields)
                     {
-                        end = len;
-                    };
+                        found = found.Trim();
+                    }
+                    extracts.Add(found);
                 }
-
-                if( start > end || start >= len )
-                    break;
-
-                var found = new string( inChars, start, end - start );
-                if( this._trimFields )
-                {
-                    found = found.Trim();
-                }
-                extracts.Add( found );                
-            } 
+            }
+            catch( Exception ex )
+            {
+                ex.Data["columnNum"] = colCur;
+                throw;
+            }
 
             extracts = Pad( extracts );
 
@@ -102,10 +110,24 @@ namespace CsvPick
 
         public NumberedRecord Parse( NumberedLine nline )
         {
-            var fields = Parse( nline.Line );
-            var nr = new NumberedRecord( nline.LineNumber, nline.Line, fields );
+            try
+            {
+                var fields = Parse(nline.Line);
+                var nr = new NumberedRecord(nline.LineNumber, nline.Line, fields);
 
-            return nr; 
+                return nr;
+            }
+            catch( Exception ex )
+            {
+                var line    = nline.Line ?? "<null>";
+                var len     = line.Length;
+                var trimLen = Math.Min( len, 35 );
+                var msg = string.Format( "Error on line {0}, field {1} (\"{2}...\")",
+                             nline.LineNumber, 
+                             (ex.Data["columnNum"] ?? "<?>"),
+                             line.Substring( 0, trimLen ) );
+                throw new ApplicationException( msg, ex );
+            }
         }
 
         public IEnumerable<NumberedRecord>  ParseMany( NumberedLine nline )

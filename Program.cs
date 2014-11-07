@@ -128,7 +128,7 @@ namespace CsvPick
                 "(lines beginning with '#' are ignored)";
 
             this.Add( new ArgDef( "InFile" )
-             { ShortSwitch="i", LongSwitch="inFile",
+             { ShortSwitch="i", LongSwitch="inFile", UnSwitched=true,
                HelpText="The input CSV file.\r\nStdin if unspecified." } );
 
             this.Add( new ArgDef( "OutFile" )
