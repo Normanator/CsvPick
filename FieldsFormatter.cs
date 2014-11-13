@@ -11,10 +11,12 @@ namespace CsvPick
         private string _formatString;
         private bool   _passThru;
         private string _delimStr;
+        private bool   _trim;
 
-        public FieldsFormatter( int [] columns, char outDelimiter )
+        public FieldsFormatter( int [] columns, char outDelimiter, bool trim )
         {
             this._delimStr = new string( outDelimiter, 1 );
+            this._trim     = trim;
 
             if( columns != null )
             {
@@ -30,18 +32,24 @@ namespace CsvPick
 
         public string Format( NumberedRecord nr )
         {
+            var fields = nr.Fields;
+            if( this._trim )
+            {
+                fields = fields.Select( (f) => TrimField( f ) ).ToArray();
+            }
+
             if( !this._passThru )
             {
                 var ae = _addLineNumbers
-                          ? (new [] { nr.LineNumber.ToString() }).Concat( nr.Fields )
-                          : nr.Fields;
+                          ? (new[] { nr.LineNumber.ToString() }).Concat( fields )
+                          : fields;
 
                 var outline = string.Format( _formatString, ae.ToArray() );
                 return outline;
             }
             else
             {
-                return string.Join( this._delimStr, nr.Fields );
+                return string.Join( this._delimStr, fields );
             }
         }
 
@@ -66,6 +74,22 @@ namespace CsvPick
             }
 
             return Tuple.Create( ordered, fmtSb.ToString() );
+        }
+
+        private string TrimField( string field )
+        {
+            field = field.Trim();
+            if( field.Length > 0 )
+            {
+                var end = field.Length - 1;
+                if( (field[0] == '\'' && field[end] == '\'') ||
+                    (field[0] == '\"' && field[end] == '\"'))
+                {
+                    field = field.Substring( 1, end-1 );
+                    field = field.Trim();
+                }
+            }
+            return field; 
         }
     }
 }

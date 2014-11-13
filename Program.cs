@@ -49,6 +49,7 @@ namespace CsvPick
                     commentIndicator: programArguments.CommentString,
                     append:           programArguments.Append,
                     forceCRLF:        programArguments.ForceCRLF,
+                    trim:             programArguments.Trim,
                     postProcess:      postProcess );
 
                 retCode = 0;
@@ -147,6 +148,10 @@ namespace CsvPick
                         "   JSON   (curly-brace enclosed strings)\r\n" +
                         "(may supply both comma-seperated)" } );
 
+            this.Add( new ArgDef("Trim")
+            { ShortSwitch = "trim", LongSwitch = "trim", ArgKind=ArgDef.Kind.Bool,
+              HelpText = "Removes whitespace and surrounding quotes from output fields" } );
+
             this.Add( new ArgDef("ShowHeaders")
                 { ShortSwitch="h", LongSwitch="headers", ArgKind=ArgDef.Kind.Bool,
                   HelpText="Shows the first row vertically with ordinals, useful for later -f assignment" } );
@@ -207,6 +212,9 @@ namespace CsvPick
         {
             get { return this["FieldForm"].GetString(); }
         }
+
+        public bool Trim
+        { get { return this["Trim"].GetBool(); } }
 
         public char Delimiter
         {

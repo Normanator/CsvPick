@@ -108,7 +108,8 @@ namespace My.Utilities
                         char                outDelim         = ',',
                         int                 skipLines        = 0,
                         int                 takeLines        = -1,
-                        string              commentIndicator = "#" )
+                        string              commentIndicator = "#",
+                        bool                trim             = false )
         {
             var numberer  = new LineNumberer();
             var numbLines = numberer.Map( inputLines );
@@ -120,11 +121,11 @@ namespace My.Utilities
                                                 trim:(!char.IsWhiteSpace(outDelim)) );
 
             var numbRecs  = numbLines.Skip( skipLines )
-                                        .Where( nl => !nl.Line.StartsWith(commentIndicator) )
-                                        .Take( takeLines )
-                                        .SelectMany( nl => parser.ParseMany(nl) );
+                                     .Where( nl => !nl.Line.StartsWith(commentIndicator) )
+                                     .Take( takeLines )
+                                     .SelectMany( nl => parser.ParseMany(nl) );
 
-            var outFormatter = new FieldsFormatter( columns, outDelim );                
+            var outFormatter = new FieldsFormatter( columns, outDelim, trim );
 
             var outLines = numbRecs.Select( (nr) => outFormatter.Format(nr) );
 
@@ -142,6 +143,7 @@ namespace My.Utilities
                         string               commentIndicator = "#",
                         bool                 append           = false,
                         bool                 forceCRLF        = false,
+                        bool                 trim             = false,
                         Func<string,string>  postProcess = null )
         {
             Encoding              outEncoding     = Encoding.UTF8;
@@ -176,7 +178,8 @@ namespace My.Utilities
                                               outDelim,
                                               skipLines,
                                               takeLines,
-                                              commentIndicator );
+                                              commentIndicator,
+                                              trim );
                
                 foreach( string outline in outLines )
                 {
