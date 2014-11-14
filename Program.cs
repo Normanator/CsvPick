@@ -26,6 +26,16 @@ namespace CsvPick
                     goto Done;
                 }
 
+                if( programArguments.ScriptFile != null )
+                {
+                    var fs = new FieldScript( programArguments.ScriptFile );
+                    var results = fs.Project( new[] { "Shaggy", "!sknioZ", "3;4;5", "Male", "" } );
+                    foreach( var res in results )
+                    {
+                        Console.WriteLine( String.Join( " - ", res.ToArray() ) );
+                    }
+                }
+
                 int [] columns = ToColumnArray( programArguments.FieldList );
 
                 var delimFinder = new DelimFinder( 
@@ -73,7 +83,7 @@ namespace CsvPick
             Done:
             if( System.Diagnostics.Debugger.IsAttached )
             {
-                Console.WriteLine( "\r\nDone.  Hit Enter to quit" );
+                Console.WriteLine( "\r\nHit any key to exit debugging..." );
                 Console.ReadKey( true );
             }
             return retCode;
@@ -187,6 +197,17 @@ namespace CsvPick
             this.Add( new ArgDef( "CommentString" )
               { ShortSwitch="cmt",  LongSwitch="commentChar", DefaultValue=(object)"#",
                 HelpText = "Ignore any input lines beginning with this string" } );
+
+            this.Add( new ArgDef( "ScriptFile" )
+              { ShortSwitch="scr",  LongSwitch="script", 
+                HelpText = "Name of a script-file to operate on extracted fields.\r\n" + 
+                           "public class MyLogic { \r\n" +
+                           "   public IEnumerable<string> Process(IEnumerable<string>)\r\n" +
+                           "returning any number of fields per each row's fields.\r\n" + 
+                           "  (Note, inputs are unique and column-number sorted, e.g.\r\n" +
+                           "   -f 2,0,2 yields an input of {col0, col2}.)\r\n" + 
+                           "Write IEnumerable<IEnumerable<string>> MultiProcess(...)\r\n" + 
+                           "if you need to shred a column across multiple rows." } );
         }
 
         public string InFile
@@ -300,5 +321,8 @@ namespace CsvPick
                 return ff;
             }
         }
+
+        public string ScriptFile
+        { get { return this[ "ScriptFile" ].GetString(); } }
     }
 }
