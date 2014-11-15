@@ -26,21 +26,16 @@ namespace CsvPick
                     goto Done;
                 }
 
-                if( programArguments.ScriptFile != null )
-                {
-                    var fs = new FieldScript( programArguments.ScriptFile );
-                    var results = fs.Project( new[] { "Shaggy", "!sknioZ", "3;4;5", "Male", "" } );
-                    foreach( var res in results )
-                    {
-                        Console.WriteLine( String.Join( " - ", res.ToArray() ) );
-                    }
-                }
-
                 int [] columns = ToColumnArray( programArguments.FieldList );
 
                 var delimFinder = new DelimFinder( 
                                        programArguments.Delimiter,
                                        programArguments.FieldParseType );
+
+                var fieldMapper = 
+                  string.IsNullOrWhiteSpace( programArguments.ScriptFile )
+                    ? (IMapFields)(new BasicMapFields())
+                    : (IMapFields)(new FieldScript(programArguments.ScriptFile));
 
                 Func<string,string> postProcess = (s) => s;
                 if( programArguments.ShowHeaders )
@@ -53,6 +48,7 @@ namespace CsvPick
                     columns,
                     programArguments.OutFile,
                     delimFinder,
+                    fieldMapper,
                     programArguments.OutDelimiter,
                     skipLines:        programArguments.SkipLines,
                     takeLines:        programArguments.TakeLines,

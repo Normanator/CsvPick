@@ -30,6 +30,33 @@ namespace CsvPick
             }
         }
 
+        public FieldsFormatter( bool addLineNumbers )
+        {
+            this._delimStr       = ",";
+            this._passThru       = true;
+            this._addLineNumbers = addLineNumbers;
+        }
+
+        public string OutDelimiter
+        {
+            get { return this._delimStr;  }
+            set
+            { 
+                if( this._delimStr != value )
+                {
+                    this._formatString = this._formatString.Replace( this._delimStr, value );
+                    this._delimStr = value;
+                }
+            }
+        }
+
+        public bool Trim
+        {
+            get { return this._trim;  }
+            set { this._trim = value; }
+        }
+
+
         public string Format( NumberedRecord nr )
         {
             var fields = nr.Fields;
@@ -49,7 +76,10 @@ namespace CsvPick
             }
             else
             {
-                return string.Join( this._delimStr, fields );
+                var dataportion = string.Join( this._delimStr, fields );
+                return !_addLineNumbers
+                    ? dataportion
+                    : (nr.LineNumber.ToString() + this._delimStr + dataportion);
             }
         }
 

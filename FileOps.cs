@@ -105,6 +105,7 @@ namespace My.Utilities
                         IEnumerable<string> inputLines,
                         int []              columns,
                         DelimFinder         delimFinder      = null,
+                        IMapFields          fieldMapper      = null,
                         char                outDelim         = ',',
                         int                 skipLines        = 0,
                         int                 takeLines        = -1,
@@ -120,14 +121,24 @@ namespace My.Utilities
             var parser    = new DelimParser( delimFinder, fieldList, 
                                                 trim:(!char.IsWhiteSpace(outDelim)) );
 
+            fieldMapper   = fieldMapper ?? (IMapFields)(new BasicMapFields());
+
             var numbRecs  = numbLines.Skip( skipLines )
                                      .Where( nl => !nl.Line.StartsWith(commentIndicator) )
                                      .Take( takeLines )
                                      .SelectMany( nl => parser.ParseMany(nl) );
 
-            var outFormatter = new FieldsFormatter( columns, outDelim, trim );
+            var outRecs   = numbRecs.SelectMany( r =>
+                    fieldMapper.Project( r.Fields )
+                               .Select( x => 
+                                  new NumberedRecord( r.LineNumber, r.Line, x ) )
+                 );
 
-            var outLines = numbRecs.Select( (nr) => outFormatter.Format(nr) );
+            var outFormatter = fieldMapper.GetOutFormatter( columns );
+            outFormatter.OutDelimiter = new string( outDelim, 1 );
+            outFormatter.Trim         = trim;
+
+            var outLines = outRecs.Select( (nr) => outFormatter.Format(nr) );
 
             return outLines;
         }
@@ -137,6 +148,7 @@ namespace My.Utilities
                         int []               columns,
                         string               outFile,
                         DelimFinder          delimFinder      = null,
+                        IMapFields           fieldMapper      = null,
                         char                 outDelim         = ',',
                         int                  skipLines        = 0,
                         int                  takeLines        = -1,
@@ -175,6 +187,7 @@ namespace My.Utilities
                 var outLines = Projectfields( inputLines,
                                               columns,
                                               delimFinder,
+                                              fieldMapper,
                                               outDelim,
                                               skipLines,
                                               takeLines,
