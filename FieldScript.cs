@@ -57,7 +57,8 @@ namespace CsvPick
 
         public FieldsFormatter GetOutFormatter( int [] columns )
         {
-            var addLineNumbers = columns.Any( i => (i == -1) );
+            var addLineNumbers = columns != null && 
+                                 columns.Any( i => (i == -1) );
             return new FieldsFormatter( addLineNumbers );
         }
 

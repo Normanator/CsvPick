@@ -42,11 +42,11 @@ namespace CsvPick
             get { return this._delimStr;  }
             set
             { 
-                if( this._delimStr != value )
+                if( this._delimStr != value && this._formatString != null )
                 {
                     this._formatString = this._formatString.Replace( this._delimStr, value );
-                    this._delimStr = value;
                 }
+                this._delimStr = value;
             }
         }
 

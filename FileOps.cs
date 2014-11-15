@@ -118,6 +118,9 @@ namespace My.Utilities
             var fieldList = columns != null
                               ? columns.Where( v => v >= 0 ).ToArray()
                               : null;
+
+            // TODO: The Projectfields(trim) wants to strip quotes.
+            // Do in the parser so fieldMapper doesn't see quoted values.
             var parser    = new DelimParser( delimFinder, fieldList, 
                                                 trim:(!char.IsWhiteSpace(outDelim)) );
 
