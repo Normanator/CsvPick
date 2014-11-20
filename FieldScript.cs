@@ -30,6 +30,22 @@ namespace CsvPick
             BindProcessType( );
         }
 
+        public IEnumerable<IEnumerable<string>> Project( NumberedRecord nr )
+        {
+            try
+            { 
+                return this.Project( nr.Fields );
+            }
+            catch( Exception ex )
+            {
+                var lineAudit = nr.GetAuditString();
+                var msg = string.Format( "Error in col {0}, {1}",
+                             (ex.Data["columnNum"] ?? "<?>"),
+                             lineAudit );
+                throw new ApplicationException( msg, ex );
+            }
+        }
+
 
         public IEnumerable<IEnumerable<string>> Project( IEnumerable<string> fields )
         {

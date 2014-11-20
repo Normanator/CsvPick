@@ -27,43 +27,68 @@ namespace My.Utilities
 
         #region Interpreting files
 
-        public static string GuessEndOfLineMark( System.IO.FileStream  fs, string defaultEoL )
+        public static Tuple<bool,string> EoLFinder( char [] buf )
         {
-            if( !fs.CanSeek )
-                return defaultEoL;
+            int foundAt = Array.IndexOf( buf, '\n' );
+            if( foundAt == -1 )
+                return Tuple.Create( false, "" );
 
-            string eol = defaultEoL;
-            long   pos = fs.Position;
+            var guess = (foundAt > 0 && buf[ foundAt - 1 ] == '\r')
+                          ? "\r\n"
+                          : "\n";
+            return Tuple.Create( true, guess );
+        }
+        
+        
+        public static Tuple<bool,char> DelimFinder( char [] buf )
+        {
+            var guess = buf.FirstOrDefault( c => c==',' || c=='\t' );
+            if( guess == default(char) )
+                return Tuple.Create( false, '*' );
+
+            return Tuple.Create( true, guess );
+        }
+
+
+        public static T GuessFromStream<T>( System.IO.Stream           stream, 
+                                            Func<char[],Tuple<bool,T>> finder,
+                                            T                          defaultAns )
+        {
+            if( !stream.CanSeek )
+                return defaultAns;
+
+            T     ans = defaultAns;
+            long  pos = stream.Position;
             try
             {
-                fs.Seek( 0L, System.IO.SeekOrigin.Begin );
-                var reader = new System.IO.StreamReader( fs, Encoding.UTF8, true, 4096 );
+                stream.Seek( 0L, System.IO.SeekOrigin.Begin );
+                var reader = new System.IO.StreamReader( stream, Encoding.UTF8, true, 4096 );
 
-                char [] buf    = new char[ 512 ];
-                int     offset = 0;
-                for(int i = 0;  i < 20; ++i )
+                const int bufLen = 512;
+                char [] buf      = new char[ bufLen ];
+                int     offset   = 0;
+                int     ctRead   = bufLen;
+                for(int i = 0;  (i < 20) && (ctRead == (bufLen-offset)); ++i )
                 {
-                    int     ctRead = reader.Read( buf, offset, 512 - offset );
+                    buf[0] = buf[ bufLen - 1 ];
+                    ctRead = reader.Read( buf, offset, bufLen - offset );
                     offset = 1;
-
-                    int     foundAt = Array.IndexOf( buf, '\n' );
-                    if( foundAt == -1 )
+                    
+                    var guess = finder( buf );
+                    if( !guess.Item1 )
                         continue;
-
-                    eol = (foundAt > 0 && buf[ foundAt - 1 ] == '\r')
-                            ? "\r\n"
-                            : "\n";
+                    
+                    ans = guess.Item2;
                     break;
                 }
             }
             finally
             {
-                fs.Seek( pos, System.IO.SeekOrigin.Begin );
+                stream.Seek( pos, System.IO.SeekOrigin.Begin );
             }
 
-            return eol;
+            return ans;
         }
-
 
 
         public static bool StreamEndsWithNewLine( System.IO.Stream stream )
@@ -108,6 +133,7 @@ namespace My.Utilities
                         IMapFields          fieldMapper      = null,
                         char                outDelim         = ',',
                         int                 skipLines        = 0,
+                        Sampler             sampler          = null,
                         int                 takeLines        = -1,
                         string              commentIndicator = "#",
                         bool                trim             = false )
@@ -119,27 +145,26 @@ namespace My.Utilities
                               ? columns.Where( v => v >= 0 ).ToArray()
                               : null;
 
-            // TODO: The Projectfields(trim) wants to strip quotes.
-            // Do in the parser so fieldMapper doesn't see quoted values.
-            var parser    = new DelimParser( delimFinder, fieldList, 
-                                                trim:(!char.IsWhiteSpace(outDelim)) );
+            var parser    = new DelimParser( delimFinder, fieldList, trim );
 
             fieldMapper   = fieldMapper ?? (IMapFields)(new BasicMapFields());
 
+            sampler       = sampler ?? new Sampler( 100 );
+
             var numbRecs  = numbLines.Skip( skipLines )
                                      .Where( nl => !nl.Line.StartsWith(commentIndicator) )
+                                     .SampleFrom( sampler )
                                      .Take( takeLines )
                                      .SelectMany( nl => parser.ParseMany(nl) );
 
             var outRecs   = numbRecs.SelectMany( r =>
-                    fieldMapper.Project( r.Fields )
+                    fieldMapper.Project( r )
                                .Select( x => 
                                   new NumberedRecord( r.LineNumber, r.Line, x ) )
                  );
 
             var outFormatter = fieldMapper.GetOutFormatter( columns );
             outFormatter.OutDelimiter = new string( outDelim, 1 );
-            outFormatter.Trim         = trim;
 
             var outLines = outRecs.Select( (nr) => outFormatter.Format(nr) );
 
@@ -150,10 +175,11 @@ namespace My.Utilities
                         string               inFile,
                         int []               columns,
                         string               outFile,
-                        DelimFinder          delimFinder      = null,
+                        DelimFinder          delimFinder,
                         IMapFields           fieldMapper      = null,
                         char                 outDelim         = ',',
                         int                  skipLines        = 0,
+                        Sampler              sampler          = null,
                         int                  takeLines        = -1,
                         string               commentIndicator = "#",
                         bool                 append           = false,
@@ -178,6 +204,17 @@ namespace My.Utilities
                 endOfLineMark = inPair.Item2;
                 outEncoding   = inPair.Item3;
 
+                if(delimFinder.Delimiter == default(char))
+                {
+                    delimFinder.Delimiter = (inPair.Item4 != default( char ))
+                                              ? inPair.Item4
+                                              : ',';
+                }
+                if( outDelim == default(char) )
+                {
+                    outDelim = delimFinder.Delimiter;
+                }
+
 
                 var outPair = OpenOutput( outFile, outEncoding, append );
                 writer   = outPair.Item1;
@@ -193,6 +230,7 @@ namespace My.Utilities
                                               fieldMapper,
                                               outDelim,
                                               skipLines,
+                                              sampler,
                                               takeLines,
                                               commentIndicator,
                                               trim );
@@ -258,12 +296,13 @@ namespace My.Utilities
         }
 
 
-        public static Tuple<TextReader,string,Encoding> OpenInput(
+        public static Tuple<TextReader,string,Encoding,char> OpenInput(
             string   inFile )
         {
-            TextReader  reader        = null;
-            string      endOfLineMark = Environment.NewLine;
-            Encoding    encoding      = Encoding.ASCII;
+            TextReader  reader         = null;
+            string      endOfLineMark  = Environment.NewLine;
+            char        delimiterGuess = default(char);
+            Encoding    encoding       = Encoding.ASCII;
 
             if( string.IsNullOrEmpty( inFile ) )
             {
@@ -282,11 +321,12 @@ namespace My.Utilities
                 StreamReader sr = new System.IO.StreamReader( fs, true );
 
                 encoding        = sr.CurrentEncoding;
-                endOfLineMark   = GuessEndOfLineMark( fs, endOfLineMark );
+                endOfLineMark   = GuessFromStream( fs, EoLFinder, endOfLineMark );
+                delimiterGuess  = GuessFromStream( fs, DelimFinder, delimiterGuess );
                 reader = sr;
             }
 
-            return Tuple.Create( reader, endOfLineMark, encoding );
+            return Tuple.Create( reader, endOfLineMark, encoding, delimiterGuess );
         }
         #endregion
 

@@ -8,6 +8,13 @@ namespace CsvPick
     public interface IMapFields
     {
         /// <summary>
+        /// Transforms the input NumberedRecord into 0,1, or more output records. 
+        /// </summary>
+        /// <param name="nr">An auditable structure holding input fields</param>
+        /// <returns>Output row(s)</returns>
+        IEnumerable<IEnumerable<string>> Project( NumberedRecord nr );
+
+        /// <summary>
         /// Transforms the input record's fields into 0,1, or more output records.
         /// </summary>
         /// <param name="fields">Extracted input fields</param>
@@ -20,6 +27,11 @@ namespace CsvPick
 
     public class BasicMapFields : IMapFields
     {
+        public IEnumerable<IEnumerable<string>> Project( NumberedRecord nr )
+        {
+            return this.Project( nr.Fields );
+        }
+
         public IEnumerable<IEnumerable<string>> Project( IEnumerable<string> fields )
         {
             var lst = new List<IEnumerable<string>>( 1 );
@@ -29,7 +41,7 @@ namespace CsvPick
 
         public FieldsFormatter GetOutFormatter( int [] columns )
         {
-            return new FieldsFormatter( columns, ',', false );
+            return new FieldsFormatter( columns, ',' );
         }
     }
 }

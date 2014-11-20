@@ -44,6 +44,9 @@ namespace CsvPick
                     postProcess = pp.AsNumberedLines;
                 }
 
+                var sampler = new Sampler( programArguments.SamplePercent,
+                                           programArguments.SampleSeed );
+
                 FileOps.ProcessStreams( programArguments.InFile,
                     columns,
                     programArguments.OutFile,
@@ -51,6 +54,7 @@ namespace CsvPick
                     fieldMapper,
                     programArguments.OutDelimiter,
                     skipLines:        programArguments.SkipLines,
+                    sampler:          sampler,
                     takeLines:        programArguments.TakeLines,
                     commentIndicator: programArguments.CommentString,
                     append:           programArguments.Append,
@@ -145,39 +149,21 @@ namespace CsvPick
             this.Add( new ArgDef( "FieldList" )
              { ShortSwitch="f", LongSwitch="fields",
                HelpText="Comma-seperated list of fields\r\nzero-based indices of the input columns.\r\n" + 
-                        "You can also use -1 to echo input line-number.  See also /c." } );
-
-            this.Add( new ArgDef( "FieldForm" )
-             { ShortSwitch="form", LongSwitch="fieldForm",
-               HelpText="Directs the parser to ignore the Delimiter (see /d) within fields forms\r\n" +
-                        "   QUOTED (double- and single-quoted strings)\r\n" + 
-                        "   JSON   (curly-brace enclosed strings)\r\n" +
-                        "(may supply both comma-seperated)" } );
-
-            this.Add( new ArgDef("Trim")
-            { ShortSwitch = "trim", LongSwitch = "trim", ArgKind=ArgDef.Kind.Bool,
-              HelpText = "Removes whitespace and surrounding quotes from output fields" } );
-
-            this.Add( new ArgDef("ShowHeaders")
-                { ShortSwitch="h", LongSwitch="headers", ArgKind=ArgDef.Kind.Bool,
-                  HelpText="Shows the first row vertically with ordinals, useful for later -f assignment" } );
+                        "You can also use -1 to echo input line-number." } );
 
             this.Add( new ArgDef( "Delimiter" ) 
-             { ShortSwitch="d", LongSwitch="delimiter", DefaultValue=",",
-               HelpText="The field delimiter character.\r\nA tab can be expressed as \\t." } );
+             { ShortSwitch="d", LongSwitch="delimiter", 
+               HelpText="The field delimiter character.\r\nA tab can be expressed as \\t.\r\n" +
+                        "Default is to pick first of comma or tab encountered in file.\r\n" +
+                        "(If stdin is used, -d must be explicitly set)" } );
 
             this.Add( new ArgDef( "OutDelimiter" ) 
              { ShortSwitch="od", LongSwitch="outDelimiter", 
                HelpText="(optional) Field delimiter to use in output, defaults to Delimiter value" } );
 
-            this.Add( new ArgDef( "Append" )
-              { ShortSwitch="a", LongSwitch="append", ArgKind=ArgDef.Kind.Bool,
-                HelpText="Appends to output instead of truncating outFile." } );
-
-            this.Add( new ArgDef( "ForceCRLF" )
-              { ShortSwitch="dos", LongSwitch="ForceCRLF", ArgKind=ArgDef.Kind.Bool,
-                HelpText="Ensure outFile writes line-breaks with CR-LF.\r\n" +
-                         "Ordinarily inFile's newline method is used."} );
+            this.Add( new ArgDef("ShowHeaders")
+                { ShortSwitch="h", LongSwitch="headers", ArgKind=ArgDef.Kind.Bool,
+                  HelpText="Shows the first row vertically with ordinals, useful for later -f assignment" } );
 
             this.Add( new ArgDef( "SkipLines" )
              { ShortSwitch="skip", LongSwitch="skipLines",
@@ -190,9 +176,34 @@ namespace CsvPick
                HelpText="How many lines of output should be emitted?\r\n" +
                         "(default of -1 means no limit)" } );
 
+            this.Add( new ArgDef( "FieldForm" )
+             { ShortSwitch="form", LongSwitch="fieldForm",
+               HelpText="Directs the parser to ignore the Delimiter (see /d) within fields forms\r\n" +
+                        "   QUOTED (double- and single-quoted strings)\r\n" + 
+                        "   JSON   (curly-brace enclosed strings)\r\n" +
+                        "(may supply both comma-seperated)" } );
+
+            this.Add( new ArgDef("Trim")
+            { ShortSwitch = "trim", LongSwitch = "trim", ArgKind=ArgDef.Kind.Bool,
+              HelpText = "Removes whitespace and surrounding quotes from output fields" } );
+
             this.Add( new ArgDef( "CommentString" )
               { ShortSwitch="cmt",  LongSwitch="commentChar", DefaultValue=(object)"#",
                 HelpText = "Ignore any input lines beginning with this string" } );
+
+            this.Add( new ArgDef( "Append" )
+              { ShortSwitch="a", LongSwitch="append", ArgKind=ArgDef.Kind.Bool,
+                HelpText="Appends to output instead of truncating outFile." } );
+
+            this.Add( new ArgDef( "ForceCRLF" )
+              { ShortSwitch="dos", LongSwitch="ForceCRLF", ArgKind=ArgDef.Kind.Bool,
+                HelpText="Ensure outFile writes line-breaks with CR-LF.\r\n" +
+                         "Ordinarily inFile's newline method is used."} );
+
+            this.Add( new ArgDef( "SamplePercent" )
+             { ShortSwitch="pct", LongSwitch="percent",
+               ArgKind = ArgDef.Kind.String, DefaultValue="100",
+               HelpText="Randomly sample values.  -pct 5 => 5%, pct 1:123 1% with seed 123" } );
 
             this.Add( new ArgDef( "ScriptFile" )
               { ShortSwitch="scr",  LongSwitch="script", 
@@ -203,7 +214,7 @@ namespace CsvPick
                            "  (Note, inputs are unique and column-number sorted, e.g.\r\n" +
                            "   -f 2,0,2 yields an input of {col0, col2}.)\r\n" + 
                            "Write IEnumerable<IEnumerable<string>> MultiProcess(...)\r\n" + 
-                           "if you need to shred a column across multiple rows." } );
+                           "allowing one input row to be 0, 1, or more output rows." } );
         }
 
         public string InFile
@@ -242,7 +253,9 @@ namespace CsvPick
                 if( string.CompareOrdinal( delimstr, "\\t" ) == 0 )
                     return '\t';
 
-                return delimstr[ 0 ];
+                return (delimstr != null && delimstr.Length > 0)
+                         ? delimstr[ 0 ]
+                         : default( char );  // This means try to detect
             }
         }
 
@@ -276,6 +289,24 @@ namespace CsvPick
                 return ShowHeaders 
                     ? 1
                     : this["TakeLines"].GetInt(); }
+        }
+
+        public int SamplePercent
+        {
+            get
+            {
+                var paramval = this[ "SamplePercent" ].GetString();
+                return CrackPercentValue( paramval ).Item1;
+            }
+        }
+
+        public int SampleSeed
+        {
+            get
+            {
+                var paramval = this[ "SamplePercent" ].GetString();
+                return CrackPercentValue( paramval ).Item2;
+            }
         }
 
         public string CommentString
@@ -320,5 +351,26 @@ namespace CsvPick
 
         public string ScriptFile
         { get { return this[ "ScriptFile" ].GetString(); } }
+
+        private Tuple<int,int>  CrackPercentValue( string pctValue )
+        {
+            var pctPortion  = pctValue;
+            var seedPortion = (string) null;
+            var seedDelim   = pctValue.IndexOf( ':' );
+            if( seedDelim != -1 )
+            {
+                pctPortion  = pctValue.Substring( 0, seedDelim ).Trim();
+                seedPortion = pctValue.Substring( seedDelim + 1 ).Trim();
+            }
+            int percent = -1;
+            percent = int.TryParse( pctPortion, out percent ) ? percent : 100;
+
+            int seed = -1;
+            seed = int.TryParse( seedPortion, out seed ) 
+                     ? seed
+                     : (int)(DateTime.Now.Ticks & 0xFFFFFFFF);
+
+            return Tuple.Create( percent, seed );
+        }
     }
 }

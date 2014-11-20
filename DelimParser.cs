@@ -92,7 +92,7 @@ namespace CsvPick
                     var found = new string(inChars, start, end - start);
                     if (this._trimFields)
                     {
-                        found = found.Trim();
+                        found = TrimSpaceAndQuotes( found );
                     }
                     extracts.Add(found);
                 }
@@ -108,6 +108,24 @@ namespace CsvPick
             return extracts;
         }
 
+        public static string TrimSpaceAndQuotes( string str )
+        {
+            var clean = str.Trim();
+            var end   = clean.Length - 1;
+
+            if( end >= 1 )
+            {
+                var ch1 = clean[ 0 ];
+                var ch2 = clean[ end ];
+                if( ch1 == ch2 && (ch1 == '\'' || ch1 == '\"') )
+                {
+                    clean = clean.Substring( 1, end - 1 ).Trim();
+                }
+            }
+
+            return clean;
+        }
+
         public NumberedRecord Parse( NumberedLine nline )
         {
             try
@@ -119,13 +137,10 @@ namespace CsvPick
             }
             catch( Exception ex )
             {
-                var line    = nline.Line ?? "<null>";
-                var len     = line.Length;
-                var trimLen = Math.Min( len, 35 );
-                var msg = string.Format( "Error on line {0}, field {1} (\"{2}...\")",
-                             nline.LineNumber, 
+                var lineAudit = nline.GetAuditString();
+                var msg = string.Format( "Error in col {0}, {1}",
                              (ex.Data["columnNum"] ?? "<?>"),
-                             line.Substring( 0, trimLen ) );
+                             lineAudit );
                 throw new ApplicationException( msg, ex );
             }
         }

@@ -18,6 +18,12 @@ namespace CsvPick
                 (parseType & FieldParseType.Quoted) == FieldParseType.Quoted );
         }
 
+        public char Delimiter
+        {
+            get { return _delim;  }
+            set { _delim = value; }
+        }
+
         public IEnumerable<int>  Find( IEnumerable<char> charseq, int startFrom )
         {
             var stack = new Stack<ICtx>();

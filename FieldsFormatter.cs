@@ -11,12 +11,10 @@ namespace CsvPick
         private string _formatString;
         private bool   _passThru;
         private string _delimStr;
-        private bool   _trim;
 
-        public FieldsFormatter( int [] columns, char outDelimiter, bool trim )
+        public FieldsFormatter( int [] columns, char outDelimiter )
         {
             this._delimStr = new string( outDelimiter, 1 );
-            this._trim     = trim;
 
             if( columns != null )
             {
@@ -50,20 +48,9 @@ namespace CsvPick
             }
         }
 
-        public bool Trim
-        {
-            get { return this._trim;  }
-            set { this._trim = value; }
-        }
-
-
         public string Format( NumberedRecord nr )
         {
             var fields = nr.Fields;
-            if( this._trim )
-            {
-                fields = fields.Select( (f) => TrimField( f ) ).ToArray();
-            }
 
             if( !this._passThru )
             {
