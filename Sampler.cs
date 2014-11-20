@@ -11,14 +11,18 @@ namespace CsvPick
         private double _prob;
 
 
-        public Sampler( int percent, int seed=0 )
+        public Sampler( double percent, int seed=0 )
         {
             if( seed == 0 )
                 seed = (int)(DateTime.Now.Ticks & 0xFFFFFFFF);
             
-            percent = Math.Max( 0, Math.Min( 101, percent ) );
+            // Clamp and bump in case of roundoff
+            const double bump = 1.0E-6;
+            percent = Math.Max( 0.0, percent );
+            if( percent > 0.0 )
+                this._prob = Math.Min( 1.0, (0.01 * percent) + bump );
+
             this._rand = new Random( seed );
-            this._prob = percent * 0.01;
         }
 
 

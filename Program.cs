@@ -203,7 +203,8 @@ namespace CsvPick
             this.Add( new ArgDef( "SamplePercent" )
              { ShortSwitch="pct", LongSwitch="percent",
                ArgKind = ArgDef.Kind.String, DefaultValue="100",
-               HelpText="Randomly sample values.  -pct 5 => 5%, pct 1:123 1% with seed 123" } );
+               HelpText="Randomly sample values.  -pct 5 => 5%, -pct 1.5:123 1.5% seed=123\r\n" +
+                        "Applied upstream of -take." } );
 
             this.Add( new ArgDef( "ScriptFile" )
               { ShortSwitch="scr",  LongSwitch="script", 
@@ -214,7 +215,7 @@ namespace CsvPick
                            "  (Note, inputs are unique and column-number sorted, e.g.\r\n" +
                            "   -f 2,0,2 yields an input of {col0, col2}.)\r\n" + 
                            "Write IEnumerable<IEnumerable<string>> MultiProcess(...)\r\n" + 
-                           "allowing one input row to be 0, 1, or more output rows." } );
+                           "turning 1 input row into 0, 1, or more output rows." } );
         }
 
         public string InFile
@@ -291,7 +292,7 @@ namespace CsvPick
                     : this["TakeLines"].GetInt(); }
         }
 
-        public int SamplePercent
+        public double SamplePercent
         {
             get
             {
@@ -352,7 +353,7 @@ namespace CsvPick
         public string ScriptFile
         { get { return this[ "ScriptFile" ].GetString(); } }
 
-        private Tuple<int,int>  CrackPercentValue( string pctValue )
+        private Tuple<double,int>  CrackPercentValue( string pctValue )
         {
             var pctPortion  = pctValue;
             var seedPortion = (string) null;
@@ -362,8 +363,8 @@ namespace CsvPick
                 pctPortion  = pctValue.Substring( 0, seedDelim ).Trim();
                 seedPortion = pctValue.Substring( seedDelim + 1 ).Trim();
             }
-            int percent = -1;
-            percent = int.TryParse( pctPortion, out percent ) ? percent : 100;
+            double percent = -1.0;
+            percent = double.TryParse( pctPortion, out percent ) ? percent : 100.0;
 
             int seed = -1;
             seed = int.TryParse( seedPortion, out seed ) 

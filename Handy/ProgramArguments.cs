@@ -68,14 +68,14 @@ namespace My.Utilities
                 HelpOrder=1000
             };
             Add( helpArg );
-            ArgDef  whatIfArg = new ArgDef( "WhatIf" )
-            { 
-                ArgKind=ArgDef.Kind.Bool,
-                LongSwitch="WhatIf",
-                HelpText="Shows what would occur without actually doing the actions",
-                HelpOrder=1001
-            };
-            Add( whatIfArg );
+            //ArgDef  whatIfArg = new ArgDef( "WhatIf" )
+            //{ 
+            //    ArgKind=ArgDef.Kind.Bool,
+            //    LongSwitch="WhatIf",
+            //    HelpText="Shows what would occur without actually doing the actions",
+            //    HelpOrder=1001
+            //};
+            //Add( whatIfArg );
         }
 
 
