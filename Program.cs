@@ -185,7 +185,7 @@ namespace CsvPick
 
             this.Add( new ArgDef("Trim")
             { ShortSwitch = "trim", LongSwitch = "trim", ArgKind=ArgDef.Kind.Bool,
-              HelpText = "Removes whitespace and surrounding quotes from output fields" } );
+              HelpText = "Removes surrounding quotes from input fields" } );
 
             this.Add( new ArgDef( "CommentString" )
               { ShortSwitch="cmt",  LongSwitch="commentChar", DefaultValue=(object)"#",

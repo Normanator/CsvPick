@@ -89,10 +89,10 @@ namespace CsvPick
                     if (start > end || start >= len)
                         break;
 
-                    var found = new string(inChars, start, end - start);
+                    var found = new string(inChars, start, end - start).Trim();
                     if (this._trimFields)
                     {
-                        found = TrimSpaceAndQuotes( found );
+                        found = TrimQuotesAndSpace( found );
                     }
                     extracts.Add(found);
                 }
@@ -108,7 +108,7 @@ namespace CsvPick
             return extracts;
         }
 
-        public static string TrimSpaceAndQuotes( string str )
+        public static string TrimQuotesAndSpace( string str )
         {
             var clean = str.Trim();
             var end   = clean.Length - 1;
