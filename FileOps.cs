@@ -199,7 +199,7 @@ namespace My.Utilities
 
             try
             {
-                var inPair = OpenInput( inFile );
+                var inPair    = OpenInput( inFile );
                 reader        = inPair.Item1;
                 endOfLineMark = inPair.Item2;
                 outEncoding   = inPair.Item3;
@@ -309,6 +309,21 @@ namespace My.Utilities
                 reader          = Console.In;
 
                 //TODO: Detect stdin encoding.  Cmd /U should open Unicode pipes.
+            }
+            else if( inFile.StartsWith("http:") || inFile.StartsWith("https:") )
+            {
+                var webreq = System.Net.HttpWebRequest.Create( inFile ) as System.Net.HttpWebRequest;
+                webreq.UseDefaultCredentials = true;
+                webreq.Headers.Add(System.Net.HttpRequestHeader.AcceptEncoding, "gzip,deflate");
+                webreq.Headers.Add("Content-Encoding", "UTF-8");
+                webreq.AutomaticDecompression = System.Net.DecompressionMethods.Deflate |
+                                                System.Net.DecompressionMethods.GZip;
+
+                var webresp = webreq.GetResponse();  
+                //TODO: extract encoding from webresp.Headers(?)  StreamReader?
+                encoding    = Encoding.UTF8;
+                var fs      = webresp.GetResponseStream();
+                reader      = new System.IO.StreamReader( fs, true );
             }
             else
             {

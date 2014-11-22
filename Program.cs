@@ -140,7 +140,8 @@ namespace CsvPick
 
             this.Add( new ArgDef( "InFile" )
              { ShortSwitch="i", LongSwitch="inFile", UnSwitched=true,
-               HelpText="The input CSV file.\r\nStdin if unspecified." } );
+               HelpText="The input CSV file.\r\nStdin if unspecified.\r\n" +
+                        "(BETA: Can specify a URL. Not streamed, mind the memory.  NTLM)" } );
 
             this.Add( new ArgDef( "OutFile" )
              { ShortSwitch="o", LongSwitch="outFile",
@@ -155,7 +156,7 @@ namespace CsvPick
              { ShortSwitch="d", LongSwitch="delimiter", 
                HelpText="The field delimiter character.\r\nA tab can be expressed as \\t.\r\n" +
                         "Default is to pick first of comma or tab encountered in file.\r\n" +
-                        "(If stdin is used, -d must be explicitly set)" } );
+                        "(If stdin or URL input, -d must be explicitly set)" } );
 
             this.Add( new ArgDef( "OutDelimiter" ) 
              { ShortSwitch="od", LongSwitch="outDelimiter", 
@@ -163,7 +164,7 @@ namespace CsvPick
 
             this.Add( new ArgDef("ShowHeaders")
                 { ShortSwitch="h", LongSwitch="headers", ArgKind=ArgDef.Kind.Bool,
-                  HelpText="Shows the first row vertically with ordinals, useful for later -f assignment" } );
+                  HelpText="Shows just the first row with ordinals (useful for later -f)" } );
 
             this.Add( new ArgDef( "SkipLines" )
              { ShortSwitch="skip", LongSwitch="skipLines",
@@ -211,7 +212,7 @@ namespace CsvPick
                 HelpText = "Name of a script-file to operate on extracted fields.\r\n" + 
                            "public class MyLogic { \r\n" +
                            "   public IEnumerable<string> Process(IEnumerable<string>)\r\n" +
-                           "returning any number of fields per each row's fields.\r\n" + 
+                           "returning any number of fields per each row.\r\n" + 
                            "  (Note, inputs are unique and column-number sorted, e.g.\r\n" +
                            "   -f 2,0,2 yields an input of {col0, col2}.)\r\n" + 
                            "Write IEnumerable<IEnumerable<string>> MultiProcess(...)\r\n" + 
