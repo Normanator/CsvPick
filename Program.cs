@@ -5,6 +5,7 @@ using System.Text;
 
 
 using My.Utilities;
+using System.IO;
 
 namespace CsvPick
 {
@@ -90,6 +91,130 @@ namespace CsvPick
         }
 
 
+        private char  GuessInputDelimiter( char argDelim, char detectedDelim )
+        {
+            var inDelim = (argDelim != default(char))
+                            ? argDelim
+                            : (detectedDelim != default(char))
+                                  ? detectedDelim
+                                  : ',';
+            return inDelim;
+        }
+
+
+        private string GuessEndOfLineMark( string detectedEoL, bool forceCRLF )
+        {
+            return forceCRLF
+                      ? "\r\n"
+                      : detectedEoL;
+        }
+
+
+        private void RunPipeline( MyProgramArguments progArgs )
+        {
+            var input         = FileOps.OpenInput( progArgs.InFile );
+            var reader        = input.Item1;
+            var endOfLineMark = GuessEndOfLineMark( input.Item2,
+                                                    progArgs.ForceCRLF );
+            var outEncoding   = input.Item3;
+            var inDelim       = GuessInputDelimiter( progArgs.Delimiter,
+                                                     input.Item4 );
+            var outDelim      = progArgs.OutDelimiter != default(char)
+                                  ? new string( progArgs.OutDelimiter, 1 )
+                                  : new string( inDelim, 1 );
+
+            var take          = progArgs.TakeLines;
+            var addOutIndices = false;
+            if( progArgs.ShowHeaders )
+            {
+                outDelim      = endOfLineMark;
+                take          = 1;
+                addOutIndices = true;
+            }
+
+            var output   = FileOps.OpenOutput(
+                                progArgs.OutFile,
+                                outEncoding,
+                                progArgs.Append );
+            var writer    = output.Item1;
+            var preWrite  = output.Item2
+                              ? endOfLineMark
+                              : String.Empty;
+
+            // TODO: Woof, that's a lot of parameters!  Break Compose up a tad.
+            var pipeline = ComposePipeline(
+                               inDelim,
+                               progArgs.SkipLines,
+                               take,
+                               progArgs.CommentString,
+                               progArgs.SamplePercent,
+                               progArgs.SampleSeed,
+                               progArgs.FieldParseType,
+                               progArgs.Columns,
+                               outDelim,
+                               progArgs.Trim,
+                               progArgs.ScriptFile,
+                               endOfLineMark,
+                               addOutIndices,
+                               preWrite );
+
+            pipeline( writer, reader );
+
+        }
+
+
+        private Action<TextWriter, TextReader> ComposePipeline( 
+                           char            inDelim,
+                           int             skip,
+                           int             take,
+                           string          commentStr,
+                           double          samplePct,
+                           int             sampleSeed,
+                           FieldParseType  fieldParseType,
+                           int []          columns,
+                           string          outDelim,
+                           bool            trim,
+                           string          scriptFile,
+                           string          endOfLineMark,
+                           bool            addOutIndices,
+                           string          preWrite )
+        {
+            var getRawLines = AbstractProcess.CreateLineSource();
+            var sampleLines = AbstractProcess.CreateSkipTake(
+                                 commentStr,
+                                 skip,
+                                 take,
+                                 samplePct,
+                                 sampleSeed );
+            var tokenize    = AbstractProcess.CreateTokenizer(
+                                 inDelim,
+                                 fieldParseType,
+                                 columns,
+                                 trim );
+            var project     = AbstractProcess.CreateProjector(
+                                 scriptFile );
+            var format      = AbstractProcess.CreateFormatter(
+                                 outDelim,
+                                 columns );
+            var outputLines = AbstractProcess.CreateOutputter(
+                                 preWrite,
+                                 endOfLineMark,
+                                 addOutIndices );
+
+            var pipeline = getRawLines
+                             .Then( sampleLines )
+                             .Then( tokenize )
+                             .Then( project )
+                             .Then( format );
+            var process  = MyExtensions.EndChain(
+                             outputLines,
+                             pipeline );
+
+            return process;
+        }
+
+
+        //TODO: Obsolete, remove!
         internal static int [] ToColumnArray( string fieldList )
         {
             if( string.IsNullOrWhiteSpace( fieldList ) )
@@ -112,6 +237,7 @@ namespace CsvPick
 
     // ---------------------------------------
 
+    // TODO: Obsolete.  Remove!
     internal class FieldsPivot
     {
         private char _delim;
@@ -229,6 +355,21 @@ namespace CsvPick
             get { return this["OutFile"].GetString(); }
         }
 
+        public int [] Columns
+        {
+            get
+            {
+                var fieldList = this.FieldList;
+                if( String.IsNullOrWhiteSpace( fieldList ) )
+                    return null;
+
+                return fieldList.Split( new [] { ',' },
+                                        StringSplitOptions.RemoveEmptyEntries )
+                                .Select( v => Int32.Parse( v ) )
+                                .ToArray();
+            }
+        }
+
         public string FieldList
         {
             get
@@ -290,7 +431,8 @@ namespace CsvPick
             { 
                 return ShowHeaders 
                     ? 1
-                    : this["TakeLines"].GetInt(); }
+                    : this["TakeLines"].GetInt();
+            }
         }
 
         public double SamplePercent

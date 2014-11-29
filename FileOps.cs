@@ -304,6 +304,11 @@ namespace My.Utilities
             char        delimiterGuess = default(char);
             Encoding    encoding       = Encoding.ASCII;
 
+            while( !System.Diagnostics.Debugger.IsAttached )
+            {
+                System.Threading.Thread.Sleep( 1000 );
+            }
+
             if( string.IsNullOrEmpty( inFile ) )
             {
                 reader          = Console.In;

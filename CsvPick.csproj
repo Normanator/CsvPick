@@ -61,6 +61,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AbstractProcess.cs" />
     <Compile Include="DelimFinder.cs" />
     <Compile Include="DelimParser.cs" />
     <Compile Include="FieldScript.cs" />
