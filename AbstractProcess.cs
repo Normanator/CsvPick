@@ -6,18 +6,8 @@ using System.Text;
 
 namespace CsvPick
 {
-    class AbstractProcess
+    internal class AbstractProcess
     {
-        /// <summary>
-        /// Derive the line-ending string (LR,CRLF) and encoding (ASCII, UTF8,...)
-        /// </summary>
-        /// <param name="reader">The input source</param>
-        /// <returns>A tuple of line-ending and encoding</returns>
-        public Tuple<string,Encoding> GetLineMarkAndEncoding( StreamReader reader )
-        {
-            return Tuple.Create( "...", Encoding.UTF8 );
-        }
-
         public static Func<TextReader, IEnumerable<NumberedLine>>  CreateLineSource()
         {
             return GenerateLines;
@@ -66,40 +56,75 @@ namespace CsvPick
         }
 
         public static Func<IEnumerable<NumberedRecord>,IEnumerable<NumberedRecord>> 
-            CreateProjector( string scriptFile )
+            CreateProjector( int []    columns )
         {
+            
 
-
-        }
-
-        public static Func<IEnumerable<NumberedRecord>,IEnumerable<string>> 
-            CreateFormatter(
-                string outDelim,
-                int [] columns )
-        {
-            Func<int,string[],string[]>  getSrcFields = (lineNo,fields) => fields;
-            if( columns.Any( i => i == -1 ) )
+            Func<NumberedRecord,string[]> getSrcFields = nr => nr.Fields;
+            if( columns != null && columns.Any( i => i == -1 ) )
             {
                 // Source line-number is treated as an additional field
                 var len      = columns.Length;
                 columns      = 
                     columns.Select( i => (i >= 0) ? i : (len - 1) ).ToArray();
-                getSrcFields = 
-                    (n,f) => f.Concat( new [] { n.ToString() } ).ToArray();
+                getSrcFields = nr => 
+                    nr.Fields.Concat( new [] { nr.LineNumber.ToString() } ).ToArray();
             }
 
-            var recFmt = String.Join(
-                            outDelim, 
-                            columns.Select(o => "{"+ o.ToString() +"}").ToArray() );
-
-            Func<IEnumerable<NumberedRecord>,IEnumerable<string>> formatter = (lst) =>
+            Func<IEnumerable<NumberedRecord>,IEnumerable<NumberedRecord>> projector = ( lst ) =>
                 {
-                    // TODO: Use SelectMany s.t. we can show header fields as seperate 'records'
                     return lst.Select( nr => 
                         {
-                            var vals = getSrcFields( nr.LineNumber, nr.Fields );
-                            return String.Format( recFmt, vals );
+                            var srcFields  = getSrcFields( nr );
+                            var projFields = 
+                                columns != null
+                                    ? columns.Select( c => srcFields[ c ] ).ToArray()
+                                    : srcFields;
+
+                            nr.OutFields = projFields;
+                                
+                            return nr;
                         } );
+                };
+
+            return projector;
+        }
+
+
+        public static Func<IEnumerable<NumberedRecord>, IEnumerable<IEnumerable<string>>>
+            CreateScriptor( string scriptFile )
+        {
+            IMapFields mapFields = String.IsNullOrWhiteSpace( scriptFile )
+                                     ? (IMapFields) new BasicMapFields()
+                                     : (IMapFields) new FieldScript( scriptFile );
+            Func<IEnumerable<NumberedRecord>,IEnumerable<IEnumerable<string>>> scriptor = ( lst ) =>
+                {
+                    return lst.SelectMany( nr => mapFields.Project( nr ) );
+                };
+
+            return scriptor;
+        }
+
+
+        public static Func<IEnumerable<IEnumerable<string>>,IEnumerable<string>> 
+            CreateFormatter(
+                string   outDelim,
+                bool     prependOutIndex)
+        {
+            Func<int,string,string>  hack = (n,s) => s;
+            if( prependOutIndex )
+            {
+                hack = (n,s) => n.ToString().PadRight(8) + s;
+            }
+            Func<string[],string>    format = 
+                (sa) => String.Join( outDelim, sa );
+
+            Func<IEnumerable<string>,string> adornFormat = ( sa ) =>
+                format( sa.mapi( (i,s) => hack( i, s ) ).ToArray() );
+
+            Func<IEnumerable<IEnumerable<string>>,IEnumerable<string>> formatter = (lst) =>
+                {
+                    return lst.Select( sa => adornFormat( sa ) );
                 };
                 
             return formatter;
@@ -107,19 +132,13 @@ namespace CsvPick
 
         public static Action<TextWriter, IEnumerable<string>> CreateOutputter(
                         string   prependValue,
-                        string   endOfLineMarker,
-                        bool     prependOutIndex )
+                        string   endOfLineMarker )
         {
             Action<TextWriter, IEnumerable<string>> outputter = ( w, stm ) =>
                 {
-                    var idx = 0;
                     foreach( var line in stm )
                     {
                         w.Write( prependValue );
-                        if( prependOutIndex )
-                        {
-                            w.Write( idx.ToString().PadRight( 5 ) );
-                        }
                         w.Write( line );
 
                         prependValue = endOfLineMarker;
@@ -146,11 +165,6 @@ namespace CsvPick
             }
         }
 
-        private static IEnumerable<NumberedRecord> ProcessRecords( 
-                          IEnumerable<NumberedRecord> seq )
-        {
-            // TODO: Are we picking fields, calling scripts? 
-        }
         #endregion
 
 
@@ -167,10 +181,47 @@ namespace CsvPick
             return composed;
         }
 
+
+        /// <summary>
+        /// Chains two functions together.
+        /// The outer function takes two arguments, the latter of which is the inner function's output.
+        /// </summary>
+        /// <typeparam name="T1"></typeparam>
+        /// <typeparam name="T2"></typeparam>
+        /// <typeparam name="V"></typeparam>
+        /// <param name="outer"></param>
+        /// <param name="inner"></param>
+        /// <returns></returns>
+        public static Func<T1,T2,U> Compose<T1,T2,V,U>( Func<T1,V,U> outer, Func<T2,V> inner )
+        {
+            Func<T1,T2,U> composed = (t1,t2) => outer( t1, inner( t2 ) );
+            return composed;
+        }
+
+
         public static Action<T1,T2> EndChain<T1,T2,V>( Action<T1,V> terminal, Func<T2,V> inner )
         {
             Action<T1,T2> composed = (t1,t2) => terminal( t1, inner( t2 ) );
             return composed;
+        }
+
+
+        /// <summary>
+        /// Select with the item index also available.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <typeparam name="U"></typeparam>
+        /// <param name="src">Input stream</param>
+        /// <param name="f">Transformation function taking index and element</param>
+        /// <returns>An output stream</returns>
+        public static IEnumerable<U> mapi<T,U>( this IEnumerable<T> src, Func<int,T,U> f )
+        {
+            int idx = -1;
+            foreach( var s in src )
+            {
+                ++idx;
+                yield return f( idx, s );
+            }
         }
 
 

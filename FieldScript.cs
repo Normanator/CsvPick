@@ -91,13 +91,31 @@ namespace CsvPick
             compileParams.ReferencedAssemblies.Add(
                 Assembly.GetExecutingAssembly().Location );
 
-            var csCompiler     = new CSharpCodeProvider( provOptions );
-            var compileResults =
-                csCompiler.CompileAssemblyFromFile( compileParams, scriptFile );
+            string scriptSrc = GetScriptSource( scriptFile );
 
-            ValidateCompile( compileResults.Errors );
+            using( var csCompiler     = new CSharpCodeProvider( provOptions ) )
+            {
+                var compileResults =
+                    csCompiler.CompileAssemblyFromSource( compileParams, scriptSrc );
 
-            this.scriptAssy = compileResults.CompiledAssembly;
+                ValidateCompile( compileResults.Errors );
+
+                this.scriptAssy = compileResults.CompiledAssembly;
+            }
+        }
+
+        private static string GetScriptSource( string scriptFile )
+        {
+            var obviousUsings = "using System;\r\n" +
+                                "using System.Collections.Generic;\r\n" +
+                                "using System.Linq;\r\n" + 
+                                "#line 1 \"" + scriptFile + "\"\r\n";
+            var src = "";
+            using( var reader = new System.IO.StreamReader( scriptFile ) )
+            {
+                src = reader.ReadToEnd();
+            }
+            return obviousUsings + src;
         }
 
         private static void ValidateCompile( CompilerErrorCollection errors )

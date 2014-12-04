@@ -34,9 +34,10 @@ namespace CsvPick
 
         public IEnumerable<IEnumerable<string>> Project( IEnumerable<string> fields )
         {
-            var lst = new List<IEnumerable<string>>( 1 );
-            lst.Add( fields );
-            return lst;
+            yield return fields;
+            //var lst = new List<IEnumerable<string>>( 1 );
+            //lst.Add( fields );
+            //return lst;
         }
 
         public FieldsFormatter GetOutFormatter( int [] columns )

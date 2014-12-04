@@ -191,20 +191,20 @@ namespace CsvPick
                                  fieldParseType,
                                  columns,
                                  trim );
-            var project     = AbstractProcess.CreateProjector(
-                                 scriptFile );
+            var project     = AbstractProcess.CreateProjector( columns );
+            var script      = AbstractProcess.CreateScriptor( scriptFile );
             var format      = AbstractProcess.CreateFormatter(
                                  outDelim,
-                                 columns );
+                                 addOutIndices );
             var outputLines = AbstractProcess.CreateOutputter(
                                  preWrite,
-                                 endOfLineMark,
-                                 addOutIndices );
+                                 endOfLineMark );
 
             var pipeline = getRawLines
                              .Then( sampleLines )
                              .Then( tokenize )
                              .Then( project )
+                             .Then( script )
                              .Then( format );
             var process  = MyExtensions.EndChain(
                              outputLines,

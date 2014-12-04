@@ -5,6 +5,7 @@ using System.Text;
 
 namespace CsvPick
 {
+    [System.Diagnostics.DebuggerDisplay("{LineNumber} {DbgLine}")]
     public class NumberedLine
     {
         public NumberedLine( int lineNum, string line )
@@ -26,9 +27,14 @@ namespace CsvPick
                              line.Substring( 0, trimLen ) );
             return msg;
         }
+
+        protected string DbgLine
+        {
+            get { var line = Line ?? "<none>"; return line.Substring( 0, 30 ) + "..."; }
+        }
     }
 
-
+    [System.Diagnostics.DebuggerDisplay("{LineNumber} fldCt={DbgFieldCt} {DbgLine}")]
     public class NumberedRecord : NumberedLine
     {
         public NumberedRecord( int lineNum, string line, IEnumerable<string> data )
@@ -37,7 +43,19 @@ namespace CsvPick
             this.Fields     = data.ToArray();
         }
 
+        internal NumberedRecord( NumberedLine nl, IEnumerable<string> data )
+            : base( nl.LineNumber, nl.Line )
+        {
+            this.Fields = data.ToArray();
+        }
+
         public string[] Fields     { get; private set; }
+        public string[] OutFields  { get; set; }
+
+        private int DbgFieldCt
+        {
+            get { return Fields == null ? 0 : Fields.Length;  }
+        }
     }
 
     // -------------------------------
