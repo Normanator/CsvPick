@@ -42,9 +42,10 @@ namespace CsvPick
 
         private IList<string> Pad( IList<string> extracts )
         {
+            // BUG: if columns[] is null, we won't pad this record equal to prior peers.
             var len    = extracts.Count;
             var reqLen = (_nextColumns != null)
-                            ? _nextColumns.Count - 1
+                            ? _nextColumns.Count - 1 
                             : len;
             for( int i = len; i < reqLen; ++i )
             {
@@ -84,6 +85,9 @@ namespace CsvPick
                         {
                             end = len;
                         };
+
+                        // review: if we wanted instead to emit blank fields for 
+                        // unselected ones, do if colCur < nextCol extracts.Add("") here.
                     }
 
                     if (start > end || start >= len)

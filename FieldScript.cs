@@ -34,7 +34,7 @@ namespace CsvPick
         {
             try
             { 
-                return this.Project( nr.Fields );
+                return this.Project( nr.OutFields );
             }
             catch( Exception ex )
             {

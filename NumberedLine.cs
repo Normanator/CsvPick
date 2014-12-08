@@ -28,13 +28,18 @@ namespace CsvPick
             return msg;
         }
 
-        protected string DbgLine
+        protected virtual string DbgLine
         {
-            get { var line = Line ?? "<none>"; return line.Substring( 0, 30 ) + "..."; }
+            get
+            { 
+                var line = Line ?? "<none>";
+                var len  = Math.Min( line.Length, 30 );
+                var elipsis = (len < line.Length) ? "..." : string.Empty;
+                return line.Substring( 0, len ) + elipsis; }
         }
     }
 
-    [System.Diagnostics.DebuggerDisplay("{LineNumber} fldCt={DbgFieldCt} {DbgLine}")]
+    [System.Diagnostics.DebuggerDisplay("line#={LineNumber} fldCt={DbgFieldCt} {DbgLine}")]
     public class NumberedRecord : NumberedLine
     {
         public NumberedRecord( int lineNum, string line, IEnumerable<string> data )
@@ -49,13 +54,55 @@ namespace CsvPick
             this.Fields = data.ToArray();
         }
 
+        internal NumberedRecord( NumberedRecord nr, IEnumerable<string> data )
+            : this( (NumberedLine) nr, nr.Fields )
+        {
+            this.OutFields = data.ToArray();
+        }
+
         public string[] Fields     { get; private set; }
         public string[] OutFields  { get; set; }
 
+        #region Debugger display
         private int DbgFieldCt
         {
             get { return Fields == null ? 0 : Fields.Length;  }
         }
+
+        protected override string DbgLine
+        {
+            get
+            { 
+                Func<string[],string> pretty = (arr) =>
+                    {
+                        var sb     = new StringBuilder();
+                        var prefix = string.Empty;
+                        var suffix = string.Empty;
+                        var ct = arr.Length;
+                        int i  = 0;
+                        while( sb.Length < 45 && i < ct )
+                        {
+                            var str = arr[ i ];
+                            var len = Math.Min( 12, str.Length );
+                            suffix  = (len < str.Length) ? "..." : string.Empty;
+                            sb.Append( prefix );
+                            sb.Append( arr[ i ].Substring( 0, len ) );
+                            sb.Append( suffix );
+                            prefix = "|";
+                            ++i;
+                        }
+                        return sb.ToString();
+                    };
+
+                if( Fields == null )
+                    return base.DbgLine;
+
+                return OutFields == null
+                    ? "flds=" + pretty( Fields )
+                    : "outf=" + pretty( OutFields );
+            }
+        }
+        #endregion
     }
 
     // -------------------------------

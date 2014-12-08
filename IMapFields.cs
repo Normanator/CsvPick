@@ -29,7 +29,7 @@ namespace CsvPick
     {
         public IEnumerable<IEnumerable<string>> Project( NumberedRecord nr )
         {
-            return this.Project( nr.Fields );
+            return this.Project( nr.OutFields );
         }
 
         public IEnumerable<IEnumerable<string>> Project( IEnumerable<string> fields )

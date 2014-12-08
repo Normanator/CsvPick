@@ -1,0 +1,12 @@
+-- This file has pipe-delimited records and sql-style comments!
+-- Oooh, can CsvPick handle it?  (Who are we kidding, of course it can!)
+--
+Col0|Col1|Col2|Col3
+L1-0|L1-1|L1-2|L1-3
+L2-0|L2-1|L2-2|L2-3
+L3-0|L3-1|L3-2|L3-3
+L4-0|L4-1|L4-2|L4-3
+L5-0|L5-1|L5-2|L5-3
+L6-0|L6-1|L6-2|L6-3
+L7-0|L7-1|L7-2|L7-3
+L8-0|L8-1|L8-2|L8-3

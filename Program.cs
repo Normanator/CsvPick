@@ -27,41 +27,7 @@ namespace CsvPick
                     goto Done;
                 }
 
-                int [] columns = ToColumnArray( programArguments.FieldList );
-
-                var delimFinder = new DelimFinder( 
-                                       programArguments.Delimiter,
-                                       programArguments.FieldParseType );
-
-                var fieldMapper = 
-                  string.IsNullOrWhiteSpace( programArguments.ScriptFile )
-                    ? (IMapFields)(new BasicMapFields())
-                    : (IMapFields)(new FieldScript(programArguments.ScriptFile));
-
-                Func<string,string> postProcess = (s) => s;
-                if( programArguments.ShowHeaders )
-                {
-                    var pp = new FieldsPivot( programArguments.OutDelimiter );
-                    postProcess = pp.AsNumberedLines;
-                }
-
-                var sampler = new Sampler( programArguments.SamplePercent,
-                                           programArguments.SampleSeed );
-
-                FileOps.ProcessStreams( programArguments.InFile,
-                    columns,
-                    programArguments.OutFile,
-                    delimFinder,
-                    fieldMapper,
-                    programArguments.OutDelimiter,
-                    skipLines:        programArguments.SkipLines,
-                    sampler:          sampler,
-                    takeLines:        programArguments.TakeLines,
-                    commentIndicator: programArguments.CommentString,
-                    append:           programArguments.Append,
-                    forceCRLF:        programArguments.ForceCRLF,
-                    trim:             programArguments.Trim,
-                    postProcess:      postProcess );
+                RunPipeline( programArguments );
 
                 retCode = 0;
             }
@@ -95,7 +61,7 @@ namespace CsvPick
         }
 
 
-        private char  GuessInputDelimiter( char argDelim, char detectedDelim )
+        private static char  GuessInputDelimiter( char argDelim, char detectedDelim )
         {
             var inDelim = (argDelim != default(char))
                             ? argDelim
@@ -106,69 +72,107 @@ namespace CsvPick
         }
 
 
-        private string GuessEndOfLineMark( string detectedEoL, bool forceCRLF )
+        private static string GuessEndOfLineMark( string detectedEoL, bool forceCRLF )
         {
             return forceCRLF
                       ? "\r\n"
                       : detectedEoL;
         }
 
-
-        private void RunPipeline( MyProgramArguments progArgs )
+        private static Tuple<int[],int[]>  ReduceColumns( int [] columns )
         {
-            var input         = FileOps.OpenInput( progArgs.InFile );
-            var reader        = input.Item1;
-            var endOfLineMark = GuessEndOfLineMark( input.Item2,
-                                                    progArgs.ForceCRLF );
-            var outEncoding   = input.Item3;
-            var inDelim       = GuessInputDelimiter( progArgs.Delimiter,
-                                                     input.Item4 );
-            var outDelim      = progArgs.OutDelimiter != default(char)
-                                  ? new string( progArgs.OutDelimiter, 1 )
-                                  : new string( inDelim, 1 );
+            if( columns == null )
+                return Tuple.Create( (int[])null, (int[])null );
 
-            var take          = progArgs.TakeLines;
-            var addOutIndices = false;
-            if( progArgs.ShowHeaders )
-            {
-                outDelim      = endOfLineMark;
-                take          = 1;
-                addOutIndices = true;
-            }
-
-            var output   = FileOps.OpenOutput(
-                                progArgs.OutFile,
-                                outEncoding,
-                                progArgs.Append );
-            var writer    = output.Item1;
-            var preWrite  = output.Item2
-                              ? endOfLineMark
-                              : String.Empty;
-
-            // TODO: Woof, that's a lot of parameters!  Break Compose up a tad.
-            var pipeline = ComposePipeline(
-                               inDelim,
-                               progArgs.SkipLines,
-                               take,
-                               progArgs.CommentString,
-                               progArgs.SamplePercent,
-                               progArgs.SampleSeed,
-                               progArgs.FieldParseType,
-                               progArgs.Columns,
-                               outDelim,
-                               progArgs.Trim,
-                               progArgs.ScriptFile,
-                               endOfLineMark,
-                               addOutIndices,
-                               preWrite,
-                               progArgs.ContinueOnError );
-
-            pipeline( writer, reader );
-
+            var toExtract = columns.Where( v => v > -1)
+                                   .OrderBy (v => v)
+                                   .Distinct().ToArray();
+            Func<int,int> findIndex = (v) => 
+              {
+                  if( v == -1 ) return -1;
+                  int idx = 0;
+                  foreach( var te in toExtract )
+                  {
+                    if( te == v )
+                        return idx;
+                
+                    ++idx;
+                  }
+                  throw new ApplicationException( "unable to find element" );
+              };
+      
+            var reduced   = columns.Select ( v => findIndex(v) ).ToArray();
+    
+            return Tuple.Create( toExtract, reduced );
         }
 
 
-        private Action<TextWriter, TextReader> ComposePipeline( 
+        private static void RunPipeline( MyProgramArguments progArgs )
+        {
+            var reader = (System.IO.TextReader)null;
+            var writer = (System.IO.TextWriter)null;
+            try
+            { 
+                var input         = FileOps.OpenInput( progArgs.InFile );
+                reader            = input.Item1;
+                var endOfLineMark = GuessEndOfLineMark( input.Item2,
+                                                        progArgs.ForceCRLF );
+                var outEncoding   = input.Item3;
+                var inDelim       = GuessInputDelimiter( progArgs.Delimiter,
+                                                         input.Item4 );
+                var outDelim      = progArgs.OutDelimiter != default(char)
+                                      ? new string( progArgs.OutDelimiter, 1 )
+                                      : new string( inDelim, 1 );
+
+                var take          = progArgs.TakeLines;
+                var addOutIndices = false;
+                if( progArgs.ShowHeaders )
+                {
+                    outDelim      = endOfLineMark;
+                    take          = 1;
+                    addOutIndices = true;
+                }
+
+                var output   = FileOps.OpenOutput(
+                                    progArgs.OutFile,
+                                    outEncoding,
+                                    progArgs.Append );
+                writer        = output.Item1;
+                var preWrite  = output.Item2
+                                  ? endOfLineMark
+                                  : String.Empty;
+
+                // TODO: Woof, that's a lot of parameters!  Break Compose up a tad.
+                var pipeline = ComposePipeline(
+                                   inDelim,
+                                   progArgs.SkipLines,
+                                   take,
+                                   progArgs.CommentString,
+                                   progArgs.SamplePercent,
+                                   progArgs.SampleSeed,
+                                   progArgs.FieldParseType,
+                                   progArgs.Columns,
+                                   outDelim,
+                                   progArgs.Trim,
+                                   progArgs.ScriptFile,
+                                   endOfLineMark,
+                                   addOutIndices,
+                                   preWrite,
+                                   progArgs.ContinueOnError );
+
+                pipeline( writer, reader );
+            }
+            finally
+            {
+                if( reader != null )
+                    reader.Dispose();
+                if( writer != null )
+                    writer.Dispose();
+            }
+        }
+
+
+        private static Action<TextWriter, TextReader> ComposePipeline( 
                            char            inDelim,
                            int             skip,
                            int             take,
@@ -204,6 +208,8 @@ namespace CsvPick
                 };
             }
 
+            var reducedColumns = ReduceColumns( columns ).Item2;
+
 
             var getRawLines = AbstractProcess.CreateLineSource();
             var sampleLines = AbstractProcess.CreateSkipTake(
@@ -218,7 +224,8 @@ namespace CsvPick
                                  columns,
                                  trim, 
                                  errHandler);
-            var project     = AbstractProcess.CreateProjector( columns );
+            var project     = AbstractProcess.CreateProjector(
+                                 reducedColumns );
             var script      = AbstractProcess.CreateScriptor( 
                                  scriptFile,
                                  errHandler );
@@ -242,46 +249,7 @@ namespace CsvPick
             return process;
         }
 
-
-        //TODO: Obsolete, remove!
-        internal static int [] ToColumnArray( string fieldList )
-        {
-            if( string.IsNullOrWhiteSpace( fieldList ) )
-                return null;
-
-            fieldList        = fieldList.Trim();
-            string [] tokens = fieldList.Split(
-                new char[] { ',' },
-                StringSplitOptions.RemoveEmptyEntries );
-
-            var  ids = from token in tokens
-                       let id = (int) Convert.ChangeType( token.Trim(), typeof( int ) )
-                       where id >= -1
-                       select id;
-
-            return ids.ToArray();
-        }
-
     } // end class Program
-
-    // ---------------------------------------
-
-    // TODO: Obsolete.  Remove!
-    internal class FieldsPivot
-    {
-        private char _delim;
-
-        public FieldsPivot( char delim ) {  this._delim = delim; }
-
-        public string AsNumberedLines( string line )
-        {
-            var fields = line.Split( _delim );
-            var nums   = Enumerable.Range(0, fields.Count() );
-            var nfs    = fields.Zip( nums, (f,n) => string.Format( "  {0}\t({1})", f, n ) );
-            var well   = string.Join( "\r\n", nfs );
-            return well;
-        }
-    }
 
     // ---------------------------------------
 
@@ -290,13 +258,12 @@ namespace CsvPick
         public MyProgramArguments() : base( caseSensitive: false )
         {
             this.HelpSummary = "CsvPick.exe\r\n" + 
-                "Allows you to extract a subset of columns from a CSV file.\r\n" +
-                "(lines beginning with '#' are ignored)";
+                "Allows you to extract a subset of columns from a CSV file.";
 
             this.Add( new ArgDef( "InFile" )
              { ShortSwitch="i", LongSwitch="inFile", UnSwitched=true,
                HelpText="The input CSV file.\r\nStdin if unspecified.\r\n" +
-                        "(BETA: Can specify a URL. Not streamed, mind the memory.  NTLM)" } );
+                        "(BETA: URL accepted. Not streamed, mind the memory.  NTLM auth)" } );
 
             this.Add( new ArgDef( "OutFile" )
              { ShortSwitch="o", LongSwitch="outFile",
@@ -311,7 +278,7 @@ namespace CsvPick
              { ShortSwitch="d", LongSwitch="delimiter", 
                HelpText="The field delimiter character.\r\nA tab can be expressed as \\t.\r\n" +
                         "Default is to pick first of comma or tab encountered in file.\r\n" +
-                        "(If stdin or URL input, -d must be explicitly set)" } );
+                        "(stdin or URL input, MUST specify -d explicitly)" } );
 
             this.Add( new ArgDef( "OutDelimiter" ) 
              { ShortSwitch="od", LongSwitch="outDelimiter", 
@@ -344,8 +311,8 @@ namespace CsvPick
               HelpText = "Removes surrounding quotes from input fields" } );
 
             this.Add( new ArgDef( "ContinueOnError" ) 
-             { ShortSwitch="c", LongSwitch="continueOnError", ArgKind=ArgDef.Kind.Bool,
-               HelpText="Emits errors to stderr but continues" } );
+             { ShortSwitch="c", LongSwitch="continue", ArgKind=ArgDef.Kind.Bool,
+               HelpText="Emits errors to stderr but continues at next record" } );
 
             this.Add( new ArgDef( "CommentString" )
               { ShortSwitch="cmt",  LongSwitch="commentChar", DefaultValue=(object)"#",

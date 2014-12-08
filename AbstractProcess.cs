@@ -26,8 +26,8 @@ namespace CsvPick
             Func<IEnumerable<NumberedLine>, IEnumerable<NumberedLine>> filter = (seq) =>
                 {
                     var subSeq =
-                        seq.Skip( skip )
-                           .Where( nl => !nl.Line.StartsWith( commentMarker ) )
+                        seq.Where( nl => !nl.Line.StartsWith( commentMarker ) )
+                           .Skip( skip )
                            .SampleFrom( sampler )
                            .Take( take );
 
@@ -55,15 +55,15 @@ namespace CsvPick
         }
 
         public static Func<IEnumerable<NumberedRecord>,IEnumerable<NumberedRecord>> 
-            CreateProjector( int []    columns )
+            CreateProjector( int []    reducedColumns )
         {
             Func<NumberedRecord,string[]> getSrcFields = nr => nr.Fields;
-            if( columns != null && columns.Any( i => i == -1 ) )
+            if( reducedColumns != null && reducedColumns.Any( i => i == -1 ) )
             {
                 // Source line-number is treated as an additional field
-                var len      = columns.Length;
-                columns      = 
-                    columns.Select( i => (i >= 0) ? i : (len - 1) ).ToArray();
+                var len      = reducedColumns.Length;
+                reducedColumns      = 
+                    reducedColumns.Select( i => (i >= 0) ? i : (len - 1) ).ToArray();
                 getSrcFields = nr => 
                     nr.Fields.Concat( new [] { nr.LineNumber.ToString() } ).ToArray();
             }
@@ -74,8 +74,8 @@ namespace CsvPick
                         {
                             var srcFields  = getSrcFields( nr );
                             var projFields = 
-                                columns != null
-                                    ? columns.Select( c => srcFields[ c ] ).ToArray()
+                                reducedColumns != null
+                                    ? reducedColumns.Select( c => srcFields[ c ] ).ToArray()
                                     : srcFields;
 
                             nr.OutFields = projFields;
@@ -190,6 +190,7 @@ namespace CsvPick
                         throw;
 
                     errHandler( ex );
+                    outSeq.Clear();
                 }
 
                 foreach( var ov in outSeq )
@@ -220,6 +221,7 @@ namespace CsvPick
                         throw;
 
                     errHandler( ex );
+                    outSeq.Clear();
                 }
 
                 foreach( var ov in outSeq )
