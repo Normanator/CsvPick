@@ -39,18 +39,17 @@ namespace CsvPick
 
         public static Func<IEnumerable<NumberedLine>,IEnumerable<NumberedRecord>> 
             CreateTokenizer( 
-                char            delimChar,
-                FieldParseType  parseType,
-                int []          columns,
-                bool            trimQuotes )
+                char               delimChar,
+                FieldParseType     parseType,
+                int []             columns,
+                bool               trimQuotes,
+                Action<Exception>  errHandler )
         {
-            Func<IEnumerable<NumberedLine>, IEnumerable<NumberedRecord>> tokenizer = (lst) =>
-              {
-                  var df = new DelimFinder( delimChar, parseType );
-                  var dp = new DelimParser( df, columns, trimQuotes );
-                  var parsed = lst.SelectMany ( nl => dp.ParseMany(nl) );
-                  return parsed; 
-              };
+            var df = new DelimFinder( delimChar, parseType );
+            var dp = new DelimParser( df, columns, trimQuotes );
+
+            Func<IEnumerable<NumberedLine>, IEnumerable<NumberedRecord>> tokenizer = 
+                (lst) => GenerateParsedLines( dp, errHandler, lst );
               
             return tokenizer;
         }
@@ -58,8 +57,6 @@ namespace CsvPick
         public static Func<IEnumerable<NumberedRecord>,IEnumerable<NumberedRecord>> 
             CreateProjector( int []    columns )
         {
-            
-
             Func<NumberedRecord,string[]> getSrcFields = nr => nr.Fields;
             if( columns != null && columns.Any( i => i == -1 ) )
             {
@@ -92,15 +89,18 @@ namespace CsvPick
 
 
         public static Func<IEnumerable<NumberedRecord>, IEnumerable<IEnumerable<string>>>
-            CreateScriptor( string scriptFile )
+            CreateScriptor( 
+                string            scriptFile,
+                Action<Exception> errHandler )
         {
             IMapFields mapFields = String.IsNullOrWhiteSpace( scriptFile )
                                      ? (IMapFields) new BasicMapFields()
                                      : (IMapFields) new FieldScript( scriptFile );
-            Func<IEnumerable<NumberedRecord>,IEnumerable<IEnumerable<string>>> scriptor = ( lst ) =>
-                {
-                    return lst.SelectMany( nr => mapFields.Project( nr ) );
-                };
+            Func<IEnumerable<NumberedRecord>,IEnumerable<IEnumerable<string>>> scriptor = 
+                ( lst ) => GenerateScriptedFields( mapFields, errHandler, lst );
+                //{
+                //    return lst.SelectMany( nr => mapFields.Project( nr ) );
+                //};
 
             return scriptor;
         }
@@ -151,6 +151,8 @@ namespace CsvPick
 
         // -------------------------------
         #region private methods
+        // Because you are not allowed to yield-return from a lambda, these functions exist
+ 
         private static IEnumerable<NumberedLine>  GenerateLines( TextReader reader )
         {
             int n = 0;
@@ -165,6 +167,65 @@ namespace CsvPick
             }
         }
 
+        private static IEnumerable<NumberedRecord>
+            GenerateParsedLines(
+               DelimParser                 delimParser,
+                Action<Exception>          errHandler,
+                IEnumerable<NumberedLine>  seq )
+        {
+            var outSeq = new List<NumberedRecord>();
+            foreach( var nl in seq )
+            { 
+                outSeq.Clear();
+                try
+                {
+                    // Oh, yeah, you can't yield-return from a try-block either!
+                    // ...and so we do this silly, perf-wasting interim-container thing.
+
+                    outSeq.AddRange ( delimParser.ParseMany( nl ) );
+                }
+                catch( Exception ex )
+                {
+                    if( errHandler == null )
+                        throw;
+
+                    errHandler( ex );
+                }
+
+                foreach( var ov in outSeq )
+                    yield return ov;
+            }
+        }
+
+        private static IEnumerable<IEnumerable<string>>
+            GenerateScriptedFields(
+                    IMapFields                  mapFields,
+                    Action<Exception>           errHandler,
+                    IEnumerable<NumberedRecord> seq )
+        {
+            var outSeq = new List<IEnumerable<string>>();
+            foreach( var nr in seq )
+            { 
+                outSeq.Clear();
+                try
+                {
+                    // Oh, yeah, you can't yield-return from a try-block either!
+                    // ...and so we do this silly, perf-wasting interim-container thing.
+
+                    outSeq.AddRange( mapFields.Project( nr ) );
+                }
+                catch( Exception ex )
+                {
+                    if( errHandler == null )
+                        throw;
+
+                    errHandler( ex );
+                }
+
+                foreach( var ov in outSeq )
+                    yield return ov;
+            }
+        }
         #endregion
 
 

@@ -141,6 +141,7 @@ namespace CsvPick
                 var msg = string.Format( "Error in col {0}, {1}",
                              (ex.Data["columnNum"] ?? "<?>"),
                              lineAudit );
+                ex.Data[ "lineNum" ] = nline.LineNumber;
                 throw new ApplicationException( msg, ex );
             }
         }

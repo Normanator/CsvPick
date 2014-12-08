@@ -78,7 +78,11 @@ namespace CsvPick
 
                 } while( ix != null );
                 sb.Append( ex.StackTrace );
+
+                var oldClr = Console.ForegroundColor;
+                Console.ForegroundColor = ConsoleColor.Red;
                 Console.Error.WriteLine( sb.ToString() );
+                Console.ForegroundColor = oldClr;
             }
 
             Done:
@@ -156,7 +160,8 @@ namespace CsvPick
                                progArgs.ScriptFile,
                                endOfLineMark,
                                addOutIndices,
-                               preWrite );
+                               preWrite,
+                               progArgs.ContinueOnError );
 
             pipeline( writer, reader );
 
@@ -177,8 +182,29 @@ namespace CsvPick
                            string          scriptFile,
                            string          endOfLineMark,
                            bool            addOutIndices,
-                           string          preWrite )
+                           string          preWrite,
+                           bool            continueOnError )
         {
+            Action<Exception> errHandler = null;
+            if( continueOnError )
+            {
+                errHandler = (ex) =>
+                {
+                    var oldClr = Console.ForegroundColor;
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.Error.WriteLine( "Continuing past error: {0}", ex.Message );
+                    Exception ix = ex.InnerException;
+                    while( ix != null )
+                    {
+                        Console.Error.WriteLine( "   inner err: {0}", ix.Message );
+                        ix = ix.InnerException;
+                    }
+                    Console.ForegroundColor = oldClr;
+                    // Do not rethrow
+                };
+            }
+
+
             var getRawLines = AbstractProcess.CreateLineSource();
             var sampleLines = AbstractProcess.CreateSkipTake(
                                  commentStr,
@@ -190,9 +216,12 @@ namespace CsvPick
                                  inDelim,
                                  fieldParseType,
                                  columns,
-                                 trim );
+                                 trim, 
+                                 errHandler);
             var project     = AbstractProcess.CreateProjector( columns );
-            var script      = AbstractProcess.CreateScriptor( scriptFile );
+            var script      = AbstractProcess.CreateScriptor( 
+                                 scriptFile,
+                                 errHandler );
             var format      = AbstractProcess.CreateFormatter(
                                  outDelim,
                                  addOutIndices );
@@ -313,6 +342,10 @@ namespace CsvPick
             this.Add( new ArgDef("Trim")
             { ShortSwitch = "trim", LongSwitch = "trim", ArgKind=ArgDef.Kind.Bool,
               HelpText = "Removes surrounding quotes from input fields" } );
+
+            this.Add( new ArgDef( "ContinueOnError" ) 
+             { ShortSwitch="c", LongSwitch="continueOnError", ArgKind=ArgDef.Kind.Bool,
+               HelpText="Emits errors to stderr but continues" } );
 
             this.Add( new ArgDef( "CommentString" )
               { ShortSwitch="cmt",  LongSwitch="commentChar", DefaultValue=(object)"#",
@@ -456,6 +489,11 @@ namespace CsvPick
         public string CommentString
         {
             get { return this["CommentString"].GetString(); }
+        }
+
+        public bool ContinueOnError
+        {
+            get { return this["ContinueOnError"].GetBool();  }
         }
 
         public bool ShowHeaders
