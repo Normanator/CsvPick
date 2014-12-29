@@ -37,6 +37,7 @@ namespace CsvPick
             return filter;
         }
 
+
         public static Func<IEnumerable<NumberedLine>,IEnumerable<NumberedRecord>> 
             CreateTokenizer( 
                 char               delimChar,
@@ -53,6 +54,7 @@ namespace CsvPick
               
             return tokenizer;
         }
+
 
         public static Func<IEnumerable<NumberedRecord>,IEnumerable<NumberedRecord>> 
             CreateProjector( int []    reducedColumns )
@@ -88,24 +90,6 @@ namespace CsvPick
         }
 
 
-        public static Func<IEnumerable<NumberedRecord>, IEnumerable<IEnumerable<string>>>
-            CreateScriptor( 
-                string            scriptFile,
-                Action<Exception> errHandler )
-        {
-            IMapFields mapFields = String.IsNullOrWhiteSpace( scriptFile )
-                                     ? (IMapFields) new BasicMapFields()
-                                     : (IMapFields) new FieldScript( scriptFile );
-            Func<IEnumerable<NumberedRecord>,IEnumerable<IEnumerable<string>>> scriptor = 
-                ( lst ) => GenerateScriptedFields( mapFields, errHandler, lst );
-                //{
-                //    return lst.SelectMany( nr => mapFields.Project( nr ) );
-                //};
-
-            return scriptor;
-        }
-
-
         public static Func<IEnumerable<IEnumerable<string>>,IEnumerable<string>> 
             CreateFormatter(
                 string   outDelim,
@@ -130,22 +114,32 @@ namespace CsvPick
             return formatter;
         }
 
+
         public static Action<TextWriter, IEnumerable<string>> CreateOutputter(
                         string   prependValue,
                         string   endOfLineMarker )
         {
-            Action<TextWriter, IEnumerable<string>> outputter = ( w, stm ) =>
+            Action<TextWriter, IEnumerable<string>> outputter = async ( w, stm ) =>
                 {
                     foreach( var line in stm )
                     {
-                        w.Write( prependValue );
-                        w.Write( line );
+                        await w.WriteAsync( prependValue );
+                        await w.WriteAsync( line );
 
                         prependValue = endOfLineMarker;
                     }
                 };
 
             return outputter;
+        }
+
+        public static Func<IEnumerable<NumberedRecord>, IEnumerable<IEnumerable<string>>> 
+            CreatePassThruTransform()
+        {
+            Func<IEnumerable<NumberedRecord>, IEnumerable<IEnumerable<string>>>  xform = 
+                (lst) => lst.Select( (r) => r.OutFields );
+
+            return xform;
         }
 
 
@@ -198,36 +192,6 @@ namespace CsvPick
             }
         }
 
-        private static IEnumerable<IEnumerable<string>>
-            GenerateScriptedFields(
-                    IMapFields                  mapFields,
-                    Action<Exception>           errHandler,
-                    IEnumerable<NumberedRecord> seq )
-        {
-            var outSeq = new List<IEnumerable<string>>();
-            foreach( var nr in seq )
-            { 
-                outSeq.Clear();
-                try
-                {
-                    // Oh, yeah, you can't yield-return from a try-block either!
-                    // ...and so we do this silly, perf-wasting interim-container thing.
-
-                    outSeq.AddRange( mapFields.Project( nr ) );
-                }
-                catch( Exception ex )
-                {
-                    if( errHandler == null )
-                        throw;
-
-                    errHandler( ex );
-                    outSeq.Clear();
-                }
-
-                foreach( var ov in outSeq )
-                    yield return ov;
-            }
-        }
         #endregion
 
 
@@ -302,6 +266,5 @@ namespace CsvPick
             return Compose<T,V,U>( next, first );
         }
     }
-
 
 }

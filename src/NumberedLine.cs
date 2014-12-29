@@ -105,21 +105,4 @@ namespace CsvPick
         #endregion
     }
 
-    // -------------------------------
-
-    class LineNumberer
-    {
-        public int  LineNumber { get; private set; }
-    
-        public IEnumerable<NumberedLine>  Map( IEnumerable<string> srcLines )
-        {
-            LineNumber = 0;
-            foreach( var line in srcLines )
-            {
-                ++LineNumber;
-                yield return new NumberedLine( LineNumber, line );
-            }
-        }
-    }
-
 }

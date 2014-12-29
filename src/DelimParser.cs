@@ -10,7 +10,16 @@ namespace CsvPick
         private DelimFinder          _finder;
         private bool                 _trimFields;
         private Dictionary<int,int>  _nextColumns;
+        private int                  _priorSize = 1;
 
+        /// <summary>
+        /// Constructor for DelimParser 
+        /// that knows how to extract a desired set of columns,
+        /// trim them to their essence, and pad missing fields.
+        /// </summary>
+        /// <param name="finder">Delimiter finder to use</param>
+        /// <param name="columns">Desired input columns (null for all)</param>
+        /// <param name="trim">Should any enclosing quotes be trimmed</param>
         public DelimParser( DelimFinder finder, int [] columns = null, bool trim = true )
         {
             this._finder     = finder ?? 
@@ -32,38 +41,21 @@ namespace CsvPick
             }
         }
 
-        private int NextDesiredColumn( int currColumn )
+
+        /// <summary>
+        /// Tokenizes an input line into the desired columns,
+        /// as supplied to the <see cref="DelimParser"/> constructor.
+        /// </summary>
+        /// <param name="line">Raw input line</param>
+        /// <returns>Extracted  fields (with empty strings for missing values)</returns>
+        internal IList<string> Parse( string line )
         {
-            if( _nextColumns == null )
-                return currColumn + 1;
-
-            return _nextColumns[ currColumn ];
-        }
-
-        private IList<string> Pad( IList<string> extracts )
-        {
-            // BUG: if columns[] is null, we won't pad this record equal to prior peers.
-            var len    = extracts.Count;
-            var reqLen = (_nextColumns != null)
-                            ? _nextColumns.Count - 1 
-                            : len;
-            for( int i = len; i < reqLen; ++i )
-            {
-                extracts.Add( string.Empty );
-            }
-
-            return extracts; 
-        }
-
-        public IList<string> Parse( string line )
-        {
-            char []        inChars  = line.ToCharArray();
-            int            len      = inChars.Length;
+            int            len      = line.Length;
             int            start    = 0;
             int            end      = -1;
             int            colCur   = 0;
             int            nextCol  = -1;
-            IList<string>  extracts = new List<string>();
+            IList<string>  extracts = new List<string>( _priorSize );
 
             try
             {
@@ -79,7 +71,7 @@ namespace CsvPick
                             break;
                         }
 
-                        end = this._finder.Find(inChars, start).First();
+                        end = this._finder.Find( line, start );
 
                         if (end == -1)
                         {
@@ -93,11 +85,8 @@ namespace CsvPick
                     if (start > end || start >= len)
                         break;
 
-                    var found = new string(inChars, start, end - start).Trim();
-                    if (this._trimFields)
-                    {
-                        found = TrimQuotesAndSpace( found );
-                    }
+                    var trimmed = TrimCruft( line, start, end-1, this._trimFields );
+                    var found   = line.Substring( trimmed.Item1, trimmed.Item2 );
                     extracts.Add(found);
                 }
             }
@@ -112,25 +101,108 @@ namespace CsvPick
             return extracts;
         }
 
-        public static string TrimQuotesAndSpace( string str )
-        {
-            var clean = str.Trim();
-            var end   = clean.Length - 1;
 
-            if( end >= 1 )
+        private static Tuple<int,int> TrimCruft( string line, int start, int end, bool trimQuotes )
+        {
+            int  ts          = start;
+            int  te          = Math.Min( end, line.Length - 1 );
+            char lq          = '\0';
+            char rq          = '\0';
+            bool lCanAdvance = true;
+            bool rCanAdvance = true; 
+    
+            while( ts < te && (lCanAdvance || rCanAdvance) )
             {
-                var ch1 = clean[ 0 ];
-                var ch2 = clean[ end ];
-                if( ch1 == ch2 && (ch1 == '\'' || ch1 == '\"') )
+                var lch = line[ ts ];
+                var rch = line[ te ];
+        
+                if( lCanAdvance )
                 {
-                    clean = clean.Substring( 1, end - 1 ).Trim();
+                    if( Char.IsWhiteSpace( lch ) )
+                    {
+                        ++ts;
+                    }
+                    else if( trimQuotes && (lch == '\"' || lch == '\'') )
+                    {
+                            lq          = lch;
+                            lCanAdvance = false;
+                    }
+                    else 
+                    {
+                        lCanAdvance = false;
+                    }
+                }
+        
+                if( rCanAdvance )
+                {
+                    if( Char.IsWhiteSpace( rch ) )
+                    {
+                        --te;
+                    }
+                    else if( trimQuotes && (rch == '\"' || rch == '\'') )
+                    {
+                        rq          = rch;
+                        rCanAdvance = false;
+                    }
+                    else 
+                    {
+                        rCanAdvance = false;
+                    }
+                }
+        
+                if( lq != '\0' && lq == rq )
+                {
+                    ++ts;
+                    --te;
+                    lq = rq = '\0';
+                    lCanAdvance = rCanAdvance = true;
                 }
             }
-
-            return clean;
+            return Tuple.Create( ts, te - ts + 1 );
         }
 
-        public NumberedRecord Parse( NumberedLine nline )
+
+        public IEnumerable<NumberedRecord>  ParseMany( NumberedLine nline )
+        {
+            if( !string.IsNullOrEmpty( nline.Line ) )
+            {
+                yield return Parse( nline );
+            }
+        }
+
+
+        #region Private methods
+        private int NextDesiredColumn( int currColumn )
+        {
+            if( _nextColumns == null )
+                return currColumn + 1;
+
+            return _nextColumns[ currColumn ];
+        }
+
+
+        private IList<string> Pad( IList<string> extracts )
+        {
+            // BUG: if columns[] is null, we won't pad this record equal to prior peers.
+            var len    = extracts.Count;
+            var reqLen = (_nextColumns != null)
+                            ? _nextColumns.Count - 1 
+                            : len;
+            for( int i = len; i < reqLen; ++i )
+            {
+                extracts.Add( string.Empty );
+            }
+
+            if( _priorSize < reqLen )
+            {
+                _priorSize = reqLen;
+            }
+
+            return extracts; 
+        }
+
+
+        private NumberedRecord Parse( NumberedLine nline )
         {
             try
             {
@@ -149,13 +221,7 @@ namespace CsvPick
                 throw new ApplicationException( msg, ex );
             }
         }
+        #endregion
 
-        public IEnumerable<NumberedRecord>  ParseMany( NumberedLine nline )
-        {
-            if( !string.IsNullOrEmpty( nline.Line ) )
-            {
-                yield return Parse( nline );
-            }
-        }
-    }
+    } // end class
 }

@@ -28,7 +28,7 @@ namespace CsvPickTests
                 new NumberedRecord( inLines[2], new [] { "", "", "\"5" } )
             };
 
-            var actual = tokenizer( inLines );
+            var actual = tokenizer( inLines ).ToArray();
 
             NRAssert.AreEqual( expected, actual );
         }
@@ -51,7 +51,7 @@ namespace CsvPickTests
                 new NumberedRecord( inLines[2], new [] { "", "", "\"5" } )
             };
 
-            var actual = tokenizer( inLines );
+            var actual = tokenizer( inLines ).ToArray();
 
             NRAssert.AreEqual( expected, actual );
         }
@@ -74,7 +74,7 @@ namespace CsvPickTests
                 new NumberedRecord( inLines[2], new [] { "", "", "5|5b|5c" } )
             };
 
-            var actual = tokenizer( inLines );
+            var actual = tokenizer( inLines ).ToArray();
 
             NRAssert.AreEqual( expected, actual );
         }
@@ -97,7 +97,7 @@ namespace CsvPickTests
                 new NumberedRecord( inLines[2], new [] { "", "{foo:\"1,2,3\", baz:[{k:\"2\", l:\"2\"}, {k:\"2b\" l:\"2b\"}]}" } )
             };
 
-            var actual = tokenizer( inLines );
+            var actual = tokenizer( inLines ).ToArray();
 
             NRAssert.AreEqual( expected, actual );
         }
@@ -112,7 +112,7 @@ namespace CsvPickTests
             var expected = new[] {
                 new NumberedRecord( inLines[0], new [] { "two", "", "" } ) };
 
-            var actual = tokenizer( inLines );
+            var actual = tokenizer( inLines ).ToArray();
 
             NRAssert.AreEqual( expected, actual );
         }

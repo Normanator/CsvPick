@@ -226,9 +226,28 @@ namespace CsvPick
                                  errHandler);
             var project     = AbstractProcess.CreateProjector(
                                  reducedColumns );
-            var script      = AbstractProcess.CreateScriptor( 
-                                 scriptFile,
-                                 errHandler );
+
+            var inPipe = getRawLines
+                             .Then( sampleLines )
+                             .Then( tokenize )
+                             .Then( project );
+
+            Func<IEnumerable<NumberedRecord>,IEnumerable<NumberedRecord>>       scriptFilter    = null;
+            Func<IEnumerable<NumberedRecord>,IEnumerable<IEnumerable<string>>>  scriptTransform = null;
+            if( !String.IsNullOrWhiteSpace( scriptFile ) )
+            {
+                var fs = new FieldScript( scriptFile );
+                scriptFilter    = fs.GetFilter( errHandler );
+                scriptTransform = fs.GetTransform( errHandler );
+            }
+
+            if( scriptFilter != null )
+            {
+                inPipe = inPipe.Then( scriptFilter );
+            }
+
+            var xform       = scriptTransform ??
+                              AbstractProcess.CreatePassThruTransform();
             var format      = AbstractProcess.CreateFormatter(
                                  outDelim,
                                  addOutIndices );
@@ -236,11 +255,8 @@ namespace CsvPick
                                  preWrite,
                                  endOfLineMark );
 
-            var pipeline = getRawLines
-                             .Then( sampleLines )
-                             .Then( tokenize )
-                             .Then( project )
-                             .Then( script )
+            var pipeline = inPipe
+                             .Then( xform )
                              .Then( format );
             var process  = MyExtensions.EndChain(
                              outputLines,
@@ -336,13 +352,15 @@ namespace CsvPick
             this.Add( new ArgDef( "ScriptFile" )
               { ShortSwitch="scr",  LongSwitch="script", 
                 HelpText = "Name of a script-file to operate on extracted fields.\r\n" + 
+                           "It should have one top level class with either a Process(...) or\r\n" +
+                           "or MultiProcess(...) method, e.g.\r\n" +
                            "public class MyLogic { \r\n" +
                            "   public IEnumerable<string> Process(IEnumerable<string>)\r\n" +
-                           "returning any number of fields per each row.\r\n" + 
-                           "  (Note, inputs are unique and column-number sorted, e.g.\r\n" +
-                           "   -f 2,0,2 yields an input of {col0, col2}.)\r\n" + 
-                           "Write IEnumerable<IEnumerable<string>> MultiProcess(...)\r\n" + 
-                           "turning 1 input row into 0, 1, or more output rows." } );
+                           "returning any number of fields per each row, or \r\n" + 
+                           "   public IEnumerable<IEnumerable<string>> MultiProcess(...)\r\n" + 
+                           "turning 1 input row into 0, 1, or more output rows.\r\n" +
+                           "You may also have a custom predicate:\r\n" + 
+                           "   public bool Filter( IEnumerable<string> inFields )." } );
         }
 
         public string InFile

@@ -9,20 +9,30 @@ using System.Reflection;
 
 namespace CsvPick
 {
-    class FieldScript : IMapFields
+    class FieldScript
     {
         #region Script entry-point metadata
         private static readonly Type requiredInType = typeof( IEnumerable<string> );
         private static readonly Type outTypeSingle  = typeof( IEnumerable<string> );
         private static readonly Type outTypeMulti   = typeof( IEnumerable<IEnumerable<string>> );
+        private static readonly Type outTypeFilter  = typeof( bool );
         private const string methodNameSingle       = "Process";
         private const string methodNameMulti        = "MultiProcess";
+        private const string methodNameFilter       = "Filter";
         #endregion
 
-        private Assembly scriptAssy;
-        private dynamic  processInstance;
-        private bool     useMultiProcess;
+        private Assembly  scriptAssy;
 
+        // Internals for friend-assembly unit-testability.
+        internal dynamic  processInstance;
+        internal dynamic  filterInstance;
+        internal bool     useMultiProcess;
+
+
+        /// <summary>
+        /// Constructor for binding an external script 
+        /// </summary>
+        /// <param name="scriptFile">C# file to compile into the pipeline</param>
         public FieldScript( string scriptFile )
         {
             CompileScript( scriptFile );
@@ -30,53 +40,138 @@ namespace CsvPick
             BindProcessType( );
         }
 
-        public IEnumerable<IEnumerable<string>> Project( NumberedRecord nr )
+        internal FieldScript()
+        {
+            // intentionally blank
+            // For unit-tests to supply processInstance or filterInstance
+        }
+
+
+        /// <summary>
+        /// Get the filter-function (if any) to pick input records
+        /// </summary>
+        /// <param name="errHandler">Callback to handle script exceptions</param>
+        /// <returns>A stream predicate function</returns>
+        public Func<IEnumerable<NumberedRecord>, IEnumerable<NumberedRecord>>  GetFilter( 
+            Action<Exception> errHandler)
+        {
+            if( this.filterInstance == null )
+                return null;
+
+            Func<IEnumerable<NumberedRecord>,IEnumerable<NumberedRecord>> filter = (lst) =>
+                lst.Where( r => this.Filter( r, errHandler ) );
+
+            return filter; 
+        }
+
+
+        /// <summary>
+        /// Get the transform function (if any) to take input fields to output fields,
+        /// and perhaps to map input records to differing number of output records.
+        /// </summary>
+        /// <param name="errHandler">Callback to handle script exceptions</param>
+        /// <returns>A stream select-mapping function</returns>
+        public Func<IEnumerable<NumberedRecord>, IEnumerable<IEnumerable<string>>>  GetTransform( 
+            Action<Exception> errHandler )
+        {
+            if( this.processInstance == null )
+                return null;
+
+            Func<IEnumerable<NumberedRecord>,IEnumerable<IEnumerable<string>>> xform = null;
+            if( !this.useMultiProcess )
+            {
+                xform = (lst) => lst.Select( (r) => this.SingleProject( r, errHandler ) )
+                                    .Where( (r) => r != null );
+            }
+            else
+            { 
+                xform = (lst) => lst.SelectMany( (r) => this.MultiProject( r, errHandler ) )
+                                    .Where( (r) => r != null );
+            }
+
+            return xform; 
+        }
+
+
+        #region Project or Flatten
+
+        private Exception ComposeException( NumberedRecord nr,
+                                            string         baseMsg,
+                                            Exception      innerEx )
+        {
+            var lineAudit = nr.GetAuditString();
+            var msg = string.Format( "{0} Error in col {1}, {2}",
+                         baseMsg,
+                         (innerEx.Data["columnNum"] ?? "<?>"),
+                         lineAudit );
+            var aex = new ApplicationException( msg, innerEx );
+            return aex; 
+        }
+
+        private IEnumerable<string> SingleProject( NumberedRecord nr, Action<Exception> errHandler )
         {
             try
-            { 
-                return this.Project( nr.OutFields );
+            {
+                return this.processInstance.Process( nr.OutFields );
             }
             catch( Exception ex )
             {
-                var lineAudit = nr.GetAuditString();
-                var msg = string.Format( "Error in col {0}, {1}",
-                             (ex.Data["columnNum"] ?? "<?>"),
-                             lineAudit );
-                throw new ApplicationException( msg, ex );
-            }
-        }
-
-
-        public IEnumerable<IEnumerable<string>> Project( IEnumerable<string> fields )
-        {
-            var lst  = (IEnumerable<IEnumerable<string>>)null;
-
-            if( this.useMultiProcess )
-            {
-                lst = this.processInstance.MultiProcess( fields )
-                         as IEnumerable<IEnumerable<string>>;
-            }
-            else // Script returns 1 record for each input record.  Wrap it.
-            {
-                var wrapper = new List<IEnumerable<string>>();
-                var results = this.processInstance.Process( fields )
-                                as IEnumerable<string>;
-                if( results != null )
+                var aex = ComposeException( nr, "Script Project", ex );
+                if( errHandler != null )
                 {
-                    wrapper.Add( results );
-                    lst = wrapper;
+                    errHandler( aex );
+                    return null;
+                }
+                else
+                {
+                    throw aex;
                 }
             }
-            return lst ?? new List<IEnumerable<string>>();
         }
 
-
-        public FieldsFormatter GetOutFormatter( int [] columns )
+        private IEnumerable<IEnumerable<string>> MultiProject( NumberedRecord nr, Action<Exception> errHandler )
         {
-            var addLineNumbers = columns != null && 
-                                 columns.Any( i => (i == -1) );
-            return new FieldsFormatter( addLineNumbers );
+            try
+            {
+                return this.processInstance.MultiProcess( nr.OutFields );
+            }
+            catch( Exception ex )
+            {
+                var aex = ComposeException( nr, "Script MultiProject", ex );
+                if( errHandler != null )
+                {
+                    errHandler( aex );
+                    return null;
+                }
+                else
+                {
+                    throw aex;
+                }
+            }
         }
+
+
+        private bool Filter( NumberedRecord nr, Action<Exception> errHandler )
+        {
+            try
+            {
+                return this.filterInstance.Filter( nr.OutFields );
+            }
+            catch( Exception ex )
+            {
+                var aex = ComposeException( nr, "Script Filter", ex );
+                if( errHandler != null )
+                {
+                    errHandler( aex );
+                    return false;
+                }
+                else
+                {
+                    throw aex;
+                }
+            }
+        }
+        #endregion
 
 
         #region Compile script file
@@ -162,32 +257,54 @@ namespace CsvPick
             return hasMethod;
         }
 
+        private bool IsFilterType( Type type )
+        {
+            var methods = type.GetMethods();
+            var hasMethod = 
+                methods.Any( ( m ) =>
+                         m.Name == methodNameFilter &&
+                         m.IsPublic &&
+                         m.ReturnType == outTypeFilter &&
+                         m.GetParameters().FirstOrDefault().ParameterType
+                           == requiredInType );
+            return hasMethod;
+        }
+
         private void BindProcessType()
         {
             var types    = scriptAssy.GetExportedTypes();
 
             var multiPT  = types.Where( (t) => IsMultiProcessType( t ) )
                                 .FirstOrDefault();
-
             if( multiPT != null )
             {
                 this.processInstance = Activator.CreateInstance( multiPT );
                 this.useMultiProcess = true;
-                return;
             }
-
-            var singlePT = types.Where( (t) => IsSingleProcessType( t ) )
-                                .FirstOrDefault();
-            if( singlePT != null )
+            else
             {
-                this.processInstance = Activator.CreateInstance( singlePT );
-                this.useMultiProcess = false;
-                return;
+                var singlePT = types.Where( (t) => IsSingleProcessType( t ) )
+                                    .FirstOrDefault();
+                if( singlePT != null )
+                {
+                    this.processInstance = Activator.CreateInstance( singlePT );
+                    this.useMultiProcess = false;
+                }
             }
 
-            throw new InvalidOperationException(
-                   "Failed finding a type with public Process or MultiProcess " +
-                   "method with correct signature" );
+            var filtT = types.Where( ( t ) => IsFilterType( t ) )
+                             .FirstOrDefault();
+            if( filtT != null )
+            {
+                this.filterInstance = Activator.CreateInstance( filtT );
+            }
+
+            if( this.processInstance == null && this.filterInstance == null )
+            {
+                throw new InvalidOperationException(
+                       "Failed finding a type with public Process or MultiProcess " +
+                       "method with correct signature" );
+            }
         }
         #endregion 
 

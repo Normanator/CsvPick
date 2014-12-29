@@ -10,6 +10,12 @@ namespace CsvPick
         private char     _delim;
         private EmptyCtx _emptyCtx;
 
+
+        /// <summary>
+        /// Constuctor for DelimFinder
+        /// </summary>
+        /// <param name="delim">The delimiter character to hunt for</param>
+        /// <param name="parseType">Fields-enum of parsing options.</param>
         public DelimFinder( char delim, FieldParseType parseType )
         {
             this._delim = delim;
@@ -18,59 +24,91 @@ namespace CsvPick
                 (parseType & FieldParseType.Quoted) == FieldParseType.Quoted );
         }
 
-        public char Delimiter
-        {
-            get { return _delim;  }
-            set { _delim = value; }
-        }
 
-        public IEnumerable<int>  Find( IEnumerable<char> charseq, int startFrom )
+        /// <summary>
+        /// Finds the index of the next occurrence of the delimiter
+        /// within the given raw input-line.
+        /// <see cref="DelimFinder"/> constructor.
+        /// The startFrom value should be larger than the previous delimiter index.
+        /// </summary>
+        /// <param name="line">Input line to scan</param>
+        /// <param name="startFrom">A starting index to scan from.</param>
+        /// <returns></returns>
+        public int  Find( string line, int startFrom )
         {
-            var stack = new Stack<ICtx>();
-            stack.Push( _emptyCtx );
+            var stack = new Stack<ICtx>(2);
+            ICtx ctx  = _emptyCtx;
 
-            var chars = charseq.Skip( startFrom );
+            var len   = line.Length;
             var prior = '\0';
-            var idx   = -1; 
-            foreach( var ch in chars )
+            int idx;
+            for( idx = startFrom; idx < len; ++idx )
             {
-                ++idx;
-                var ctx    = stack.Peek();
+                var ch = line[ idx ];
                 var newCtx = ctx.TestForContext( ch, prior );
                 if( newCtx != null )
                 {
-                    stack.Push( newCtx );
+                    stack.Push( ctx );
+                    ctx = newCtx;
                     prior = ch;
                     continue;
                 }
 
                 if( ctx.TestForExit( ch, prior ) )
                 {
-                    stack.Pop();
+                    ctx = stack.Count > 0
+                            ? stack.Pop()
+                            : _emptyCtx;
                     prior = ch;
                     continue;
                 }
 
-                if( stack.Count == 1 && ch == this._delim )
-                    yield return startFrom + idx;
+                if( stack.Count == 0 && ch == this._delim )
+                    return idx;
 
                 prior = ch;
             }
 
-            if( stack.Count > 1 )
+            if( stack.Count > 0 )
             { 
                 throw new ArgumentException(
                     "Failed to find closing quote or brace.",
                     "line" );
             }
 
-            yield return startFrom + idx + 1;
+            return idx + 1;
         }
 
     }
 
     // --------------------------
 
+    /// <summary>
+    /// Contexts in which delim parsing should be suspended
+    /// </summary>
+    [Flags]
+    public enum FieldParseType
+    {
+        /// <summary>
+        /// Delimiter char is not legal within the value
+        /// </summary>
+        Plain = 0,
+
+        /// <summary>
+        /// Delimiter char may appear within the value,
+        /// The field's boundaries are scoped within { ... }
+        /// </summary>
+        Json = 1,
+
+        /// <summary>
+        /// Delimiter may appear within the value,
+        /// which is scoped by single- or double-quotes. 
+        /// </summary>
+        Quoted = 2
+    }
+
+
+    #region Handlers for various contexts in which the delimiter character should not be treated as a delimiter
     interface ICtx
     {
         ICtx  TestForContext( char ch, char prior );
@@ -149,26 +187,6 @@ namespace CsvPick
             return (ch == '}');
         }
     }
+    #endregion
 
-
-    [Flags]
-    public enum FieldParseType
-    {
-        /// <summary>
-        /// Delimiter char is not legal within the value
-        /// </summary>
-        Plain = 0,
-
-        /// <summary>
-        /// Delimiter char may appear within the value,
-        /// The field's boundaries are scoped within { ... }
-        /// </summary>
-        Json = 1,
-
-        /// <summary>
-        /// Delimiter may appear within the value,
-        /// which is scoped by single- or double-quotes. 
-        /// </summary>
-        Quoted = 2
-    }
 }

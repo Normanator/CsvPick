@@ -1,11 +1,16 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2013
-VisualStudioVersion = 12.0.30723.0
+VisualStudioVersion = 12.0.31101.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CsvPick", ".\src\CsvPick.csproj", "{997E30D0-1597-4F42-B5E5-C86BD793F68D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CsvPick", "src\CsvPick.csproj", "{997E30D0-1597-4F42-B5E5-C86BD793F68D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CsvPickTests", ".\tests\CsvPickTests.csproj", "{B5A9C148-E8C5-4816-B6C4-1E0898C278E9}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CsvPickTests", "tests\CsvPickTests.csproj", "{B5A9C148-E8C5-4816-B6C4-1E0898C278E9}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{CAA87A48-2F8D-4718-9C8A-E65BB53458A9}"
+	ProjectSection(SolutionItems) = preProject
+		README.md = README.md
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

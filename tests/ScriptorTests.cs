@@ -13,8 +13,9 @@ namespace CsvPickTests
         [TestMethod]
         public void Scriptor_Script1Proj_Invoked()
         {
-            //var project  = AbstractProcess.CreateProjector( new [] { 3, -1, 2, 2  }, "_rev_script.cs" );
-            var script   = AbstractProcess.CreateScriptor( "_rev_script.cs", null );
+            var script   = new FieldScript( );
+            script.processInstance = new Simple();
+            var xform    = script.GetTransform( null );
             var inputs   = InputterTests.AsNumbRecs(
                 new[] { Tuple.Create( "R1", new [] { "1.0", "abc", "1.2xx"  } ),
                         Tuple.Create( "R2", new [] { "2.0", "def", "2.2xxx" } ),
@@ -23,7 +24,7 @@ namespace CsvPickTests
                                    new NumberedRecord( 2, "R2", new [] { "0.2", "fed", "xxx2.2", "5" } ),
                                    new NumberedRecord( 3, "R3", new [] { "0.3", "ihg", "2.3",    "3" } ) };
 
-            var actual   = script( inputs );
+            var actual   = xform( inputs );
 
             NRAssert.Equals( expected, actual );
         }
@@ -31,7 +32,8 @@ namespace CsvPickTests
         [TestMethod]
         public void Scriptor_ScriptMultiProj_Invoked()
         {
-            var script   = AbstractProcess.CreateScriptor( "_rev_script.cs", null );
+            var script   = new FieldScript( "_rev_script.cs" );
+            var xform    = script.GetTransform( null );
             var inputs   = InputterTests.AsNumbRecs(
                 new[] { Tuple.Create( "R1", new [] { "good", "a/b/c", "alpha" } ),
                         Tuple.Create( "R2", new [] { "ick",  "d/e/f", "beta" } ),
@@ -39,18 +41,42 @@ namespace CsvPickTests
             var expected = new[] { new NumberedRecord( 1, "R1", new [] { "a", "alpha" } ),
                                    new NumberedRecord( 1, "R1", new [] { "b", "alpha" } ),
                                    new NumberedRecord( 1, "R1", new [] { "c", "alpha" } ),
-                                   new NumberedRecord( 1, "R1", new [] { "",  "gamma" } )  };
+                                   new NumberedRecord( 3, "R3", new [] { "",  "gamma" } )  };
 
-            var actual   = script( inputs );
+            var actual   = xform( inputs );
 
             NRAssert.Equals( expected, actual );
         }
 
 
         [TestMethod]
+        public void Scriptor_Filter_IgnoresRows()
+        {
+            var script   = new FieldScript( "_filt_script.cs" );
+            var filter   = script.GetFilter( null );
+
+            var inputs   = InputterTests.AsNumbRecs(
+                new[] { Tuple.Create( "R1", new [] { "Blue", "60" } ),
+                        Tuple.Create( "R2", new [] { "Red", "90" } ),
+                        Tuple.Create( "R3", new [] { "Blue", "85" } ),
+                        Tuple.Create( "R4", new [] { "Blue", "77"  } ),
+                        Tuple.Create( "R5", new [] { "Blue", "92"  } )},
+                        echo: true );
+            var arr = inputs.ToArray();
+            var expected = new[] { arr[ 2 ], arr[ 4 ] };
+
+            var actual   = filter( inputs );
+
+            NRAssert.Equals( expected, actual );
+
+        }
+
+
+        [TestMethod]
         public void Scriptor_Exception_HasLineInfo()
         {
-            var script   = AbstractProcess.CreateScriptor( "_throw_script.cs", null );
+            var script   = new FieldScript( "_throw_script.cs" );
+            var xform    = script.GetTransform( null );
             var inputs   = InputterTests.AsNumbRecs(
                 new[] { Tuple.Create( "R1", new [] { "good" } ),
                         Tuple.Create( "R2", new [] { "good" } ),
@@ -62,7 +88,7 @@ namespace CsvPickTests
             bool caught = false;
             try
             {
-                var actual   = script( inputs ).ToArray();
+                var actual   = xform( inputs ).ToArray();
             }
             catch( Exception ex )
             {
@@ -76,6 +102,7 @@ namespace CsvPickTests
             Assert.IsTrue( caught, "Expected to catch exception" );
         }
 
+
         [TestMethod]
         public void Scriptor_ErrHandler_Continues()
         {
@@ -83,7 +110,8 @@ namespace CsvPickTests
             Action<Exception>  errHandler = (Exception ex) =>
                                { sb.AppendLine( ex.Message ); };
 
-            var script   = AbstractProcess.CreateScriptor( "_throw_script.cs", errHandler );
+            var script   = new FieldScript( "_throw_script.cs" );
+            var xform    = script.GetTransform( errHandler );
             var inputs   = InputterTests.AsNumbRecs(
                 new[] { Tuple.Create( "R1", new [] { "good" } ),
                         Tuple.Create( "R2", new [] { "good" } ),
@@ -96,14 +124,31 @@ namespace CsvPickTests
                                    new [] { "good" },
                                    new [] { "too-far" } };
 
-            var actual   = script( inputs ).ToArray();
+            var actual   = xform( inputs ).ToArray();
 
             NRAssert.NestedEquals( expected, actual );
-            //Assert.IsTrue( expected.SequenceEqual( actual ), "Script output unexpected" );
 
-            Assert.AreEqual( "Error in col 123, line 4 = (\"R4...\")\r\n",
+            Assert.AreEqual( "Script Project Error in col 123, line 4 = (\"R4...\")\r\n",
                              sb.ToString(), 
                              "Err msg incorrect" );
         }
+
+
+        #region Script implmentations
+        private class Simple
+        {
+            public IEnumerable<string> Process( IEnumerable<string> fields )
+            {
+                var fieldArr = fields.ToArray();
+                var longest  = 0;
+                for( int i = 0; i < fieldArr.Length; ++i )
+                {
+                    longest = Math.Max( longest, fieldArr[ i ].Length );
+                    fieldArr[ i ] = new string( fieldArr[ i ].ToCharArray().Reverse().ToArray() );
+                }
+                return fieldArr.Concat( new [] { longest.ToString() } ).ToArray();
+            }
+        }
+        #endregion
     }
 }
