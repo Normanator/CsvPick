@@ -56,6 +56,7 @@ Write your script to match the order you choose thru -f.  Skip/take occur upstre
 You can also 'SelectMany' to expand a record to multiple records (or omit the record) in a 'MultiProcess' method.
 
 Ex.S1  -- Transform some fields and add new field.
+
             //myscript.cs
             public class Brilliant
             {
@@ -74,6 +75,7 @@ Ex.S1  -- Transform some fields and add new field.
             CsvPick -i foo.csv -f 8,2,4,5 --script myscript.cs
 
 Ex.S2 -- Take all 'Male' fields and expand their 'Sports' to seperate records.
+
             //guysports.cs
             public class GuySports
             {
@@ -95,6 +97,7 @@ Ex.S2 -- Take all 'Male' fields and expand their 'Sports' to seperate records.
             CsvPick -i foo.csv  --script guysports.cs
 
 Ex.S3  -- As MultiProcess is a bit heavy to just filter, you can also script a Filter function.
+
           // mypredicate.cs
           public class Foo
           {
@@ -106,8 +109,11 @@ Ex.S3  -- As MultiProcess is a bit heavy to just filter, you can also script a F
           }
 
 
-You can randomly sample large files.
-(N.B. for http inputs, each line is still brought down over the wire)
+You can pseudo-randomly sample large files, probabalistically picking lines streamed
+through the pipeline. Like skip/take, this occurs upstream of tokenizing so is a tad 
+faster than scripting Filter to do it.  
+(N.B. for http inputs, each line is, of course, still brought down over the wire, but
+ you will save disk-space by sampling.)
 
 Ex.P1  -- Choose roughly 2.5% of the records.  Can specify a repeatable seed.
 
