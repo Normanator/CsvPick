@@ -1,7 +1,7 @@
 ﻿
 public class MyExt
 {
-    public IEnumerable<IEnumerable<string>> MultiProcess( IEnumerable<string> fields )
+    public IEnumerable<string[]> MultiProcess( string[] fields )
     {
         var fieldArr = fields.ToArray();
         if( !fieldArr[0].StartsWith("ick") )

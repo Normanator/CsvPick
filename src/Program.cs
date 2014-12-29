@@ -233,7 +233,7 @@ namespace CsvPick
                              .Then( project );
 
             Func<IEnumerable<NumberedRecord>,IEnumerable<NumberedRecord>>       scriptFilter    = null;
-            Func<IEnumerable<NumberedRecord>,IEnumerable<IEnumerable<string>>>  scriptTransform = null;
+            Func<IEnumerable<NumberedRecord>,IEnumerable<string[]>>  scriptTransform = null;
             if( !String.IsNullOrWhiteSpace( scriptFile ) )
             {
                 var fs = new FieldScript( scriptFile );
@@ -355,12 +355,12 @@ namespace CsvPick
                            "It should have one top level class with either a Process(...) or\r\n" +
                            "or MultiProcess(...) method, e.g.\r\n" +
                            "public class MyLogic { \r\n" +
-                           "   public IEnumerable<string> Process(IEnumerable<string>)\r\n" +
+                           "   public string[] Process(string[])\r\n" +
                            "returning any number of fields per each row, or \r\n" + 
-                           "   public IEnumerable<IEnumerable<string>> MultiProcess(...)\r\n" + 
+                           "   public IEnumerable<string[]> MultiProcess(string[])\r\n" + 
                            "turning 1 input row into 0, 1, or more output rows.\r\n" +
                            "You may also have a custom predicate:\r\n" + 
-                           "   public bool Filter( IEnumerable<string> inFields )." } );
+                           "   public bool Filter( string[] inFields )." } );
         }
 
         public string InFile

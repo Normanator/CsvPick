@@ -1,6 +1,6 @@
 ﻿public class MyPred
 {
-    public bool Filter( IEnumerable<string> inFields )
+    public bool Filter( string[] inFields )
     {
         int score    = 0;
         var fieldArr = inFields.ToArray();

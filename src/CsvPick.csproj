@@ -83,10 +83,10 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent>xcopy /Y /D /Q /R _smoke_tests.cmd "$(OutDir)"
-xcopy /Y /D /Q /R pipey.csv                 "$(OutDir)"
-xcopy /Y /D /Q /R hereGoes.csv          "$(OutDir)"
-xcopy /Y /D /Q /R _script_test2.cs       "$(OutDir)"</PostBuildEvent>
+    <PostBuildEvent>xcopy /Y /D /Q /R "$(ProjectDir)_smoke_tests.cmd" "$(ProjectDir)$(OutDir)"
+xcopy /Y /D /Q /R "$(ProjectDir)pipey.csv"                 "$(ProjectDir)$(OutDir)"
+xcopy /Y /D /Q /R "$(ProjectDir)hereGoes.csv"          "$(ProjectDir)$(OutDir)"
+xcopy /Y /D /Q /R "$(ProjectDir)_script_test2.cs"       "$(ProjectDir)$(OutDir)"</PostBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

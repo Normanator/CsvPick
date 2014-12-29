@@ -59,7 +59,7 @@ Ex.S1  -- Transform some fields and add new field.
             //myscript.cs
             public class Brilliant
             {
-                public IEnumerable<string> Process( IEnumerable<string> inFields )
+                public string[] Process( string[] inFields )
                 {
                     var lst = new List<string>(5);
                     lst.AddRange( inFields.Select( s => s.ToLower() ) );
@@ -77,7 +77,7 @@ Ex.S2 -- Take all 'Male' fields and expand their 'Sports' to seperate records.
             //guysports.cs
             public class GuySports
             {
-                public IEnumerable<IEnumerable<string>> MultiProcess( IEnumerable<string> inFields )
+                public IEnumerable<string[]> MultiProcess( string[] inFields )
                 {
                     var lst = inFields.ToList();
                     if( lst[ 3 ] == "Male" )			// Suppress some rows
@@ -98,7 +98,7 @@ Ex.S3  -- As MultiProcess is a bit heavy to just filter, you can also script a F
           // mypredicate.cs
           public class Foo
           {
-              public bool Filter( IEnumerable<string> inFields )
+              public bool Filter( string[] inFields )
               {
                   return inFields[ 2 ] == "CateorgyX" &&
                          double.Parse( inFields[ 3 ] ) < 36.0;

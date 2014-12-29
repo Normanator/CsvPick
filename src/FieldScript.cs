@@ -12,9 +12,9 @@ namespace CsvPick
     class FieldScript
     {
         #region Script entry-point metadata
-        private static readonly Type requiredInType = typeof( IEnumerable<string> );
-        private static readonly Type outTypeSingle  = typeof( IEnumerable<string> );
-        private static readonly Type outTypeMulti   = typeof( IEnumerable<IEnumerable<string>> );
+        private static readonly Type requiredInType = typeof( string[] );
+        private static readonly Type outTypeSingle  = typeof( string[] );
+        private static readonly Type outTypeMulti   = typeof( IEnumerable<string[]> );
         private static readonly Type outTypeFilter  = typeof( bool );
         private const string methodNameSingle       = "Process";
         private const string methodNameMulti        = "MultiProcess";
@@ -71,13 +71,13 @@ namespace CsvPick
         /// </summary>
         /// <param name="errHandler">Callback to handle script exceptions</param>
         /// <returns>A stream select-mapping function</returns>
-        public Func<IEnumerable<NumberedRecord>, IEnumerable<IEnumerable<string>>>  GetTransform( 
+        public Func<IEnumerable<NumberedRecord>, IEnumerable<string[]>>  GetTransform( 
             Action<Exception> errHandler )
         {
             if( this.processInstance == null )
                 return null;
 
-            Func<IEnumerable<NumberedRecord>,IEnumerable<IEnumerable<string>>> xform = null;
+            Func<IEnumerable<NumberedRecord>,IEnumerable<string[]>> xform = null;
             if( !this.useMultiProcess )
             {
                 xform = (lst) => lst.Select( (r) => this.SingleProject( r, errHandler ) )
@@ -108,7 +108,7 @@ namespace CsvPick
             return aex; 
         }
 
-        private IEnumerable<string> SingleProject( NumberedRecord nr, Action<Exception> errHandler )
+        private string[] SingleProject( NumberedRecord nr, Action<Exception> errHandler )
         {
             try
             {
@@ -129,7 +129,7 @@ namespace CsvPick
             }
         }
 
-        private IEnumerable<IEnumerable<string>> MultiProject( NumberedRecord nr, Action<Exception> errHandler )
+        private IEnumerable<string[]> MultiProject( NumberedRecord nr, Action<Exception> errHandler )
         {
             try
             {

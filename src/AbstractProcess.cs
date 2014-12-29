@@ -90,7 +90,7 @@ namespace CsvPick
         }
 
 
-        public static Func<IEnumerable<IEnumerable<string>>,IEnumerable<string>> 
+        public static Func<IEnumerable<string[]>,IEnumerable<string>> 
             CreateFormatter(
                 string   outDelim,
                 bool     prependOutIndex)
@@ -103,10 +103,10 @@ namespace CsvPick
             Func<string[],string>    format = 
                 (sa) => String.Join( outDelim, sa );
 
-            Func<IEnumerable<string>,string> adornFormat = ( sa ) =>
+            Func<string[],string> adornFormat = ( sa ) =>
                 format( sa.mapi( (i,s) => hack( i, s ) ).ToArray() );
 
-            Func<IEnumerable<IEnumerable<string>>,IEnumerable<string>> formatter = (lst) =>
+            Func<IEnumerable<string[]>,IEnumerable<string>> formatter = (lst) =>
                 {
                     return lst.Select( sa => adornFormat( sa ) );
                 };
@@ -133,10 +133,10 @@ namespace CsvPick
             return outputter;
         }
 
-        public static Func<IEnumerable<NumberedRecord>, IEnumerable<IEnumerable<string>>> 
+        public static Func<IEnumerable<NumberedRecord>, IEnumerable<string[]>> 
             CreatePassThruTransform()
         {
-            Func<IEnumerable<NumberedRecord>, IEnumerable<IEnumerable<string>>>  xform = 
+            Func<IEnumerable<NumberedRecord>, IEnumerable<string[]>>  xform = 
                 (lst) => lst.Select( (r) => r.OutFields );
 
             return xform;

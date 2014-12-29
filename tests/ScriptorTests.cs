@@ -137,7 +137,7 @@ namespace CsvPickTests
         #region Script implmentations
         private class Simple
         {
-            public IEnumerable<string> Process( IEnumerable<string> fields )
+            public string[] Process( string[] fields )
             {
                 var fieldArr = fields.ToArray();
                 var longest  = 0;

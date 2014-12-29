@@ -1,7 +1,7 @@
 ﻿
 public class MyExt
 {
-    public IEnumerable<string> Process( IEnumerable<string> fields )
+    public string[] Process( string[] fields )
     {
         var fieldArr = fields.ToArray();
 
