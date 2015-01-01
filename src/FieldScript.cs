@@ -85,8 +85,7 @@ namespace CsvPick
             }
             else
             { 
-                xform = (lst) => lst.SelectMany( (r) => this.MultiProject( r, errHandler ) )
-                                    .Where( (r) => r != null );
+                xform = (lst) => lst.SelectMany( (r) => this.MultiProject( r, errHandler ) );
             }
 
             return xform; 
@@ -100,19 +99,30 @@ namespace CsvPick
                                             Exception      innerEx )
         {
             var lineAudit = nr.GetAuditString();
-            var msg = string.Format( "{0} Error in col {1}, {2}",
-                         baseMsg,
-                         (innerEx.Data["columnNum"] ?? "<?>"),
-                         lineAudit );
-            var aex = new ApplicationException( msg, innerEx );
+            var msg   = string.Format( "{0} Error in col {1}, {2}",
+                                       baseMsg,
+                                       (innerEx.Data["columnNum"] ?? "<?>"),
+                                       lineAudit );
+
+            // TODO: Kind'a expensive. If --continue was supplied, skip stack-trace
+            var stack    = innerEx.StackTrace;
+            var lastLine = stack.LastIndexOf( "\r\n" );
+            if( lastLine != -1 )
+            {
+                stack = stack.Substring( 0, lastLine );
+            }
+
+            var aex      = new ApplicationException( msg, innerEx );
+            aex.Data[ "scriptLoc" ] = stack;
             return aex; 
         }
+
 
         private string[] SingleProject( NumberedRecord nr, Action<Exception> errHandler )
         {
             try
             {
-                return this.processInstance.Process( nr.OutFields );
+                return (string []) this.processInstance.Process( nr.OutFields );
             }
             catch( Exception ex )
             {
@@ -133,7 +143,9 @@ namespace CsvPick
         {
             try
             {
-                return this.processInstance.MultiProcess( nr.OutFields );
+                // Materialize the record's expansion in order to force any evaluation exception
+                IEnumerable<string[]> resp = this.processInstance.MultiProcess( nr.OutFields );
+                return resp.ToArray();
             }
             catch( Exception ex )
             {
@@ -141,7 +153,7 @@ namespace CsvPick
                 if( errHandler != null )
                 {
                     errHandler( aex );
-                    return null;
+                    return new string[0][];
                 }
                 else
                 {

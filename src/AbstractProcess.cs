@@ -119,19 +119,50 @@ namespace CsvPick
                         string   prependValue,
                         string   endOfLineMarker )
         {
-            Action<TextWriter, IEnumerable<string>> outputter = async ( w, stm ) =>
+            // TODO: Perf-test to see if the async/await yields any measurable gain.
+            //Action<TextWriter, IEnumerable<string>> outputter = async ( w, stm ) =>
+            Action<TextWriter, IEnumerable<string>> outputter = ( w, stm ) =>
                 {
-                    foreach( var line in stm )
-                    {
-                        await w.WriteAsync( prependValue );
-                        await w.WriteAsync( line );
+                    try
+                    { 
+                        foreach( var line in stm )
+                        {
+                            //await w.WriteAsync( prependValue );
+                            //await w.WriteAsync( line );
+                            w.WriteAsync( prependValue );
+                            w.WriteAsync( line );
 
-                        prependValue = endOfLineMarker;
+                            prependValue = endOfLineMarker;
+                        }
+                    }
+                    catch( Exception ex )
+                    {
+                        var oldClr = Console.ForegroundColor;
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.Error.WriteLine( "\r\nFatal error: [{0}] - {1}", 
+                            ex.GetType().ToString(),
+                            ex.Message );
+                        Exception ix = ex.InnerException;
+                        while( ix != null )
+                        {
+                            Console.Error.WriteLine( "   Inner error: [{0}] - {1}", 
+                                ix.GetType().ToString(),
+                                ix.Message );
+                            ix = ix.InnerException;
+                        }
+                        var scriptLoc = ex.Data[ "scriptLoc" ];
+                        if( scriptLoc != null )
+                        {
+                            Console.Error.WriteLine( scriptLoc );
+                        }
+                        Console.Error.WriteLine( ex.StackTrace );
+                        Console.ForegroundColor = oldClr;
                     }
                 };
 
             return outputter;
         }
+
 
         public static Func<IEnumerable<NumberedRecord>, IEnumerable<string[]>> 
             CreatePassThruTransform()

@@ -69,7 +69,7 @@ Ex.S1  -- Transform some fields and add new field.
                     var maxLen = lst.Max( s => s.Length );
                     lst.Add( maxLen.ToString() );
 
-                    return lst;
+                    return lst.ToArray();
                 }
             }
 
@@ -88,7 +88,7 @@ Ex.S2 -- Take all "Male" records and expand their semi-colon-delimited sports to
                         {
                             var rlst = inFields.Take( 3 ).ToList();
                             rlst.Add( sport );
-                            yield return rlst;
+                            yield return rlst.ToArray();
                         }
                     }
                 }
@@ -97,18 +97,19 @@ Ex.S2 -- Take all "Male" records and expand their semi-colon-delimited sports to
             CsvPick -i foo.csv  --script guysports.cs
 
 Ex.S3  -- As MultiProcess is a bit heavy if you only want to filter, you can script a Filter function.
+          (As -trim operates upstream, you'll get unquoted values in all scripts if you use it.)
 
           // mypredicate.cs
           public class Foo
           {
               public bool Filter( string[] inFields )
               {
-                  return inFields[ 2 ] == "CateorgyX" &&
+                  return inFields[ 2 ] == "CategoryX" &&
                          double.Parse( inFields[ 3 ] ) < 36.0;
               }
           }
           
-          CsvPick -i foo.csv --script mypredicate.cs -f 3,4,5,6
+          CsvPick -i foo.csv --script mypredicate.cs -f 3,4,5,6 -trim
 
 
 You can pseudo-randomly sample large files, probabalistically picking lines streamed

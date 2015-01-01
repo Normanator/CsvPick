@@ -193,19 +193,20 @@ namespace CsvPick
             if( continueOnError )
             {
                 errHandler = (ex) =>
-                {
+                  {
                     var oldClr = Console.ForegroundColor;
                     Console.ForegroundColor = ConsoleColor.Yellow;
-                    Console.Error.WriteLine( "Continuing past error: {0}", ex.Message );
+                    Console.Error.WriteLine( "\r\nContinuing past error: {0}", ex.Message );
                     Exception ix = ex.InnerException;
                     while( ix != null )
                     {
-                        Console.Error.WriteLine( "   inner err: {0}", ix.Message );
+                        Console.Error.WriteLine( "   Inner error: {0}", ix.Message );
                         ix = ix.InnerException;
                     }
                     Console.ForegroundColor = oldClr;
+
                     // Do not rethrow
-                };
+                  };
             }
 
             var reducedColumns = ReduceColumns( columns ).Item2;

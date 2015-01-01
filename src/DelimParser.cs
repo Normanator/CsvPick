@@ -83,7 +83,13 @@ namespace CsvPick
                     }
 
                     if (start > end || start >= len)
+                    { 
+                        if( end == len - 1 )
+                        {
+                            extracts.Add( string.Empty );
+                        }
                         break;
+                    }
 
                     var trimmed = TrimCruft( line, start, end-1, this._trimFields );
                     var found   = line.Substring( trimmed.Item1, trimmed.Item2 );
@@ -187,7 +193,7 @@ namespace CsvPick
             var len    = extracts.Count;
             var reqLen = (_nextColumns != null)
                             ? _nextColumns.Count - 1 
-                            : len;
+                            : Math.Max( len, _priorSize );
             for( int i = len; i < reqLen; ++i )
             {
                 extracts.Add( string.Empty );
