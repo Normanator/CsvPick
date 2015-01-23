@@ -129,11 +129,12 @@ namespace CsvPick
                         {
                             //await w.WriteAsync( prependValue );
                             //await w.WriteAsync( line );
-                            w.WriteAsync( prependValue );
-                            w.WriteAsync( line );
+                            w.Write( prependValue );
+                            w.Write( line );
 
                             prependValue = endOfLineMarker;
                         }
+                        w.Flush();
                     }
                     catch( Exception ex )
                     {
