@@ -21,15 +21,19 @@ namespace CsvPick
                   int     sampleSeed )
         {
             var sampler = new Sampler( samplePercent, sampleSeed );
-            take        = (take <= 0) ? Int32.MaxValue : take;
 
             Func<IEnumerable<NumberedLine>, IEnumerable<NumberedLine>> filter = (seq) =>
                 {
+                    var clipSkip = Math.Max( 0, skip );
                     var subSeq =
                         seq.Where( nl => !nl.Line.StartsWith( commentMarker ) )
-                           .Skip( skip )
-                           .SampleFrom( sampler )
-                           .Take( take );
+                           .Skip( clipSkip )
+                           .SampleFrom( sampler );
+
+                    if( take > 0 )
+                    {
+                           subSeq = subSeq.Take( take );
+                    }
 
                     return subSeq;
                 };
@@ -162,6 +166,29 @@ namespace CsvPick
                 };
 
             return outputter;
+        }
+
+
+        public static Func<IEnumerable<string[]>, IEnumerable<string[]>>
+            CreatePostSkipTake( int skip, int take )
+        {
+            Func<IEnumerable<string[]>, IEnumerable<string[]>> post =
+                (lst) => lst;
+
+            if( skip > 0 )
+            {
+                post = (lst) => lst.Skip( skip );
+            }
+
+            if( take > 0 )
+            {
+                Func<IEnumerable<string[]>, IEnumerable<string[]>> postTake = 
+                    (lst) => lst.Take( take );
+        
+                post = post.Then( postTake );
+            }
+
+            return post;
         }
 
 

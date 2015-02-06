@@ -68,3 +68,11 @@ CsvPick -i pipey.csv -d ^| -od , -cmt -- -skip 1 -f -1,3,2,1 --script _script_te
 @echo            9,3-5L,2-5L,1-5L
 @echo            11,3-7L,2-7L,1-7L
 
+
+@echo.
+@echo ...............PostSkipTake...............
+CsvPick -skip -2 -take -3  --script _filter_test.cs -i etc.csv
+@echo.
+@echo expected:  Female  Cameron 16      John Conner?    10W30
+@echo            Female  Sarah   15      Terminators!    MREs
+@echo            Female  Ripley  16      Get away from her, you bitch!   Power bars

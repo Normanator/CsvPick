@@ -86,6 +86,8 @@
     <PostBuildEvent>xcopy /Y /D /Q /R "$(ProjectDir)_smoke_tests.cmd" "$(ProjectDir)$(OutDir)"
 xcopy /Y /D /Q /R "$(ProjectDir)pipey.csv"                 "$(ProjectDir)$(OutDir)"
 xcopy /Y /D /Q /R "$(ProjectDir)hereGoes.csv"          "$(ProjectDir)$(OutDir)"
+xcopy /Y /D /Q /R "$(ProjectDir)etc.csv"                    "$(ProjectDir)$(OutDir)"
+xcopy /Y /D /Q /R "$(ProjectDir)_*.cs"                        "$(ProjectDir)$(OutDir)"
 xcopy /Y /D /Q /R "$(ProjectDir)_script_test2.cs"       "$(ProjectDir)$(OutDir)"</PostBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

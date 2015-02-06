@@ -247,6 +247,12 @@ namespace CsvPick
                 inPipe = inPipe.Then( scriptFilter );
             }
 
+            var postSkip = -1 * skip;
+            var postTake = -1 * take;
+
+            var postSkipTake= AbstractProcess.CreatePostSkipTake(
+                                 postSkip,
+                                 postTake );
             var xform       = scriptTransform ??
                               AbstractProcess.CreatePassThruTransform();
             var format      = AbstractProcess.CreateFormatter(
@@ -258,6 +264,7 @@ namespace CsvPick
 
             var pipeline = inPipe
                              .Then( xform )
+                             .Then( postSkipTake )
                              .Then( format );
             var process  = MyExtensions.EndChain(
                              outputLines,
@@ -308,13 +315,14 @@ namespace CsvPick
             this.Add( new ArgDef( "SkipLines" )
              { ShortSwitch="skip", LongSwitch="skipLines",
                ArgKind = ArgDef.Kind.Int,  DefaultValue= (object) 0,
-               HelpText="How many lines of inFile should be skipped before parsing?" } );
+               HelpText="How many lines of inFile should be skipped before parsing?\r\n" + 
+                        "Negative numbers skip after filtering or -scr MultiProcess." } );
 
             this.Add( new ArgDef( "TakeLines" )
              { ShortSwitch="take", LongSwitch="takeLines",
-               ArgKind = ArgDef.Kind.Int,  DefaultValue= (object) -1,
-               HelpText="How many lines of output should be emitted?\r\n" +
-                        "(default of -1 means no limit)" } );
+               ArgKind = ArgDef.Kind.Int,  DefaultValue= (object) 0,
+               HelpText="How many lines of output should be emitted?\r\n" + 
+                        "Negative numbers take after filtering or -scr MultiProcess." } );
 
             this.Add( new ArgDef( "FieldForm" )
              { ShortSwitch="form", LongSwitch="fieldForm",
