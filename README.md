@@ -43,6 +43,8 @@ As often headers preceed data, you'll probably use -skip 1 alot.
 Ex.C1  -- Define comment marker as --, skip first 5 non-comment lines, take 1000, continue on errors
 
                CsvPick -i http://svr/foo.csv -cmt -- -skip 5 -take 1000 -c
+               
+Ordinarily -skip and -take apply to the input stream, but if you supply negative values, they apply to the output stream, which --script, --percent, or --with may have shrunk (or a --script MultiProcess even expanded).  
 
 Ex.C2  -- Pipe processes
 
@@ -111,6 +113,11 @@ Ex.S3  -- As MultiProcess is a bit heavy if you only want to filter, you can scr
           
           CsvPick -i foo.csv --script mypredicate.cs -f 3,4,5,6 -trim
 
+The --with switch provides a more convenient, albeit very narrow, filter.  This inspects a single field (whose ordinal occurs after any -f projection) and applies case-insensitive equality on trimmed values, ignoring outermost enclosing quotes.  As -scr is so much more expressive, it takes precedent; if any script is supplied, the -with param will be ignored.
+
+Ex.S4  -- Pick only rows whose 5th column (projected here to 1st) holds Los Angeles.
+
+         CsvPick -i foo.csv -f -1,5,3,6 -with 1=="los angeles" 
 
 You can pseudo-randomly sample large files, probabalistically picking lines streamed
 through the pipeline. Like skip/take, this occurs upstream of tokenizing so is a tad 
