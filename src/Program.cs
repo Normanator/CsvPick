@@ -269,6 +269,7 @@ namespace CsvPick
                                  endOfLineMark );
 
             var pipeline = inPipe
+                             .Then( postSkipTake )
                              .Then( xform )
                              .Then( postSkipTake )
                              .Then( format );
