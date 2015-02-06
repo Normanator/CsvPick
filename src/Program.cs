@@ -155,6 +155,7 @@ namespace CsvPick
                                    outDelim,
                                    progArgs.Trim,
                                    progArgs.ScriptFile,
+                                   progArgs.WithFilter,
                                    endOfLineMark,
                                    addOutIndices,
                                    preWrite,
@@ -184,6 +185,7 @@ namespace CsvPick
                            string          outDelim,
                            bool            trim,
                            string          scriptFile,
+                           string          withFilterTerm,
                            string          endOfLineMark,
                            bool            addOutIndices,
                            string          preWrite,
@@ -241,6 +243,10 @@ namespace CsvPick
                 scriptFilter    = fs.GetFilter( errHandler );
                 scriptTransform = fs.GetTransform( errHandler );
             }
+            else if( !String.IsNullOrWhiteSpace( withFilterTerm ) )
+            {
+                scriptFilter = CreateSimpleFilter( withFilterTerm, true );
+            }
 
             if( scriptFilter != null )
             {
@@ -271,6 +277,44 @@ namespace CsvPick
                              pipeline );
 
             return process;
+        }
+
+
+        private static Func<IEnumerable<NumberedRecord>,IEnumerable<NumberedRecord>>  
+            CreateSimpleFilter( string withFilterTerm, bool trim )
+        {
+            var parts = withFilterTerm.Split( 
+                         new [] { "==" },
+                         2,
+                         StringSplitOptions.None );
+            var fieldNum = -1;
+            var hasField = int.TryParse( parts[ 0 ], out fieldNum );
+
+            if( parts.Length != 2 || !hasField )
+                throw new ArgumentException( "with filter expected to be <int>==<str>" );
+
+            // TODO: Surely we've encapsulated the quote-trimming code!
+            Func<string,string> prep = (s) => s.Trim().ToLower();
+            if( trim )
+            {
+                Func<string,string> trimf = (s) =>
+                {
+                    var last = s.Length -1;
+                    if( (last >= 0) && 
+                        ((s[0] == '\'' && s[last] == '\'') ||
+                         (s[0] == '"'  && s[last] == '"')) )
+                    {
+                        s = s.Substring( 1, last-1 ).Trim();
+                    }
+                    return s;
+                };
+                prep = prep.Then( trimf );
+            }
+
+            Func<IEnumerable<NumberedRecord>,IEnumerable<NumberedRecord>> scriptFilter = 
+                (lst) => lst.Where( (nr) => prep(nr.OutFields[ fieldNum ]) == prep(parts[1]) );
+
+            return scriptFilter;
         }
 
     } // end class Program
@@ -370,6 +414,15 @@ namespace CsvPick
                            "turning 1 input row into 0, 1, or more output rows.\r\n" +
                            "You may also have a custom predicate:\r\n" + 
                            "   public bool Filter( string[] inFields )." } );
+
+            this.Add( new ArgDef( "WithFilter" )
+              {
+                  ShortSwitch = "with",
+                  LongSwitch = "with",
+                  HelpText = "Filters input on a given field by equality (akin to -scr Filter)\r\n" +
+                             "e.g. -with 4==\"los angeles\" or 4==SEATTLE.\r\n" + 
+                             "Case-insensitve, ignores enclosing quotes and spaces.  Ignored if -scr set." } );
+
         }
 
         public string InFile
@@ -527,6 +580,9 @@ namespace CsvPick
 
         public string ScriptFile
         { get { return this[ "ScriptFile" ].GetString(); } }
+
+        public string WithFilter
+        { get { return this[ "WithFilter" ].GetString(); } }
 
         private Tuple<double,int>  CrackPercentValue( string pctValue )
         {
