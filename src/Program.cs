@@ -284,7 +284,7 @@ namespace CsvPick
             CreateSimpleFilter( string withFilterTerm, bool trim )
         {
             var parts = withFilterTerm.Split( 
-                         new [] { "==" },
+                         new [] { "==", "!=" },
                          2,
                          StringSplitOptions.None );
             var fieldNum = -1;
@@ -292,6 +292,8 @@ namespace CsvPick
 
             if( parts.Length != 2 || !hasField )
                 throw new ArgumentException( "with filter expected to be <int>==<str>" );
+
+            var tst      = withFilterTerm.Substring( parts[0].Length, 2 );
 
             // TODO: Surely we've encapsulated the quote-trimming code!
             Func<string,string> prep = (s) => s.Trim().ToLower();
@@ -311,8 +313,17 @@ namespace CsvPick
                 prep = prep.Then( trimf );
             }
 
-            Func<IEnumerable<NumberedRecord>,IEnumerable<NumberedRecord>> scriptFilter = 
-                (lst) => lst.Where( (nr) => prep(nr.OutFields[ fieldNum ]) == prep(parts[1]) );
+            Func<IEnumerable<NumberedRecord>, IEnumerable<NumberedRecord>> scriptFilter = null;
+            if (tst == "!=")
+            {
+                scriptFilter = 
+                    (lst) => lst.Where( (nr) => prep(nr.OutFields[fieldNum]) != prep(parts[1]) );
+            }
+            else
+            {
+                scriptFilter = 
+                    (lst) => lst.Where( (nr) => prep(nr.OutFields[fieldNum]) == prep(parts[1]) );
+            }
 
             return scriptFilter;
         }
@@ -419,9 +430,9 @@ namespace CsvPick
               {
                   ShortSwitch = "with",
                   LongSwitch = "with",
-                  HelpText = "Filters input on a given field by equality (akin to -scr Filter)\r\n" +
-                             "e.g. -with 4==\"los angeles\" or 4==SEATTLE.\r\n" + 
-                             "Case-insensitve, ignores enclosing quotes and spaces.  Ignored if -scr set." } );
+                  HelpText = "Filters input on a given field by (in-)equality (akin to -scr Filter)\r\n" +
+                             "e.g. -with 4==\"los angeles\" or 3!=Error or 2!= (i.e. null or empty).\r\n" + 
+                             "Case-insensitve, ignores enclosing quotes and spaces.   Ignored if -scr set." } );
 
         }
 

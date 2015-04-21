@@ -76,3 +76,18 @@ CsvPick -skip -2 -take -3  --script _filter_test.cs -i etc.csv
 @echo expected:  Female  Cameron 16      John Conner?    10W30
 @echo            Female  Sarah   15      Terminators!    MREs
 @echo            Female  Ripley  16      Get away from her, you bitch!   Power bars
+
+
+@echo.
+@echo ...............With filter...............
+CsvPick -i etc.csv -f 1,2,3 -with 1==16
+@echo.
+@echo expected:  Cameron 16      John Conner?
+@echo            Ripley  16      Get away from her, you bitch!
+@echo.
+CsvPick -i etc.csv -f 1,2,3 -with 1!=18
+@echo.
+@echo expected:  Shaggy 13      Zoinks!
+@echo            Velma  14      Jinkies!
+@echo             ... 
+@echo.

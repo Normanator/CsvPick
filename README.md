@@ -113,7 +113,7 @@ Ex.S3  -- As MultiProcess is a bit heavy if you only want to filter, you can scr
           
           CsvPick -i foo.csv --script mypredicate.cs -f 3,4,5,6 -trim
 
-The --with switch provides a more convenient, albeit very narrow, filter.  This inspects a single field (whose ordinal occurs after any -f projection) and applies case-insensitive equality on trimmed values, ignoring outermost enclosing quotes.  As -scr is so much more expressive, it takes precedent; if any script is supplied, the -with param will be ignored.
+The --with switch provides a more convenient, albeit very narrow, filter.  This inspects a single field (whose ordinal occurs after any -f projection) and applies case-insensitive equality on trimmed values, ignoring outermost enclosing quotes.  Inequality is also supported via '-with x!=y', e.g. '-with 2!=' outputs only rows whose 2nd column is non-empty. As -scr is so much more expressive, it takes precedent; if any script is supplied, the -with param will be ignored.
 
 Ex.S4  -- Pick only rows whose 5th column (projected here to 1st) holds Los Angeles.
 
