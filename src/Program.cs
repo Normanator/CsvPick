@@ -237,16 +237,20 @@ namespace CsvPick
 
             Func<IEnumerable<NumberedRecord>,IEnumerable<NumberedRecord>>       scriptFilter    = null;
             Func<IEnumerable<NumberedRecord>,IEnumerable<string[]>>  scriptTransform = null;
-            if( !String.IsNullOrWhiteSpace( scriptFile ) )
-            {
-                var fs = new FieldScript( scriptFile );
-                scriptFilter    = fs.GetFilter( errHandler );
-                scriptTransform = fs.GetTransform( errHandler );
-            }
-            else if( !String.IsNullOrWhiteSpace( withFilterTerm ) )
+            if( !String.IsNullOrWhiteSpace( withFilterTerm ) )
             {
                 scriptFilter = CreateSimpleFilter( withFilterTerm, true );
             }
+            if( !String.IsNullOrWhiteSpace( scriptFile ) )
+            {
+                var fs = new FieldScript( scriptFile );
+                var dynFilt     = fs.GetFilter( errHandler );
+                scriptFilter    = scriptFilter != null 
+                                   ? scriptFilter.Then( dynFilt )
+                                   : dynFilt;
+                scriptTransform = fs.GetTransform( errHandler );
+            }
+            
 
             if( scriptFilter != null )
             {
@@ -424,7 +428,8 @@ namespace CsvPick
                            "   public IEnumerable<string[]> MultiProcess(string[])\r\n" + 
                            "turning 1 input row into 0, 1, or more output rows.\r\n" +
                            "You may also have a custom predicate:\r\n" + 
-                           "   public bool Filter( string[] inFields )." } );
+                           "   public bool Filter( string[] inFields ).\r\n" + 
+                           "Ctor string[] args can be specified via appending (x,y,z)." } );
 
             this.Add( new ArgDef( "WithFilter" )
               {
@@ -432,7 +437,7 @@ namespace CsvPick
                   LongSwitch = "with",
                   HelpText = "Filters input on a given field by (in-)equality (akin to -scr Filter)\r\n" +
                              "e.g. -with 4==\"los angeles\" or 3!=Error or 2!= (i.e. null or empty).\r\n" + 
-                             "Case-insensitve, ignores enclosing quotes and spaces.   Ignored if -scr set." } );
+                             "Case-insensitve, ignores enclosing quotes and spaces.  Filters input fields." } );
 
         }
 

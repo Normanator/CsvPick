@@ -1,0 +1,6 @@
+bin/
+obj/
+objd/
+*.suo
+*.user
+/**/*_out.txt

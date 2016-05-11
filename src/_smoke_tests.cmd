@@ -91,3 +91,12 @@ CsvPick -i etc.csv -f 1,2,3 -with 1!=18
 @echo            Velma  14      Jinkies!
 @echo             ... 
 @echo.
+
+@echo.
+@echo ............Filter and script with args..
+CsvPick -i etc.csv -f 0,1,2 -with 0==Female --script _arg_filt.cs(S) 
+@echo.
+@echo expected: Female  Velma   14
+@echo           Female  Sarah   15
+@echo           Female  Uhura   17
+@echo.

@@ -35,9 +35,11 @@ namespace CsvPick
         /// <param name="scriptFile">C# file to compile into the pipeline</param>
         public FieldScript( string scriptFile )
         {
-            CompileScript( scriptFile );
+            Tuple<string,string[]>  fileAndArgs = ParseForArgs( scriptFile );
 
-            BindProcessType( );
+            CompileScript( fileAndArgs.Item1 );
+
+            BindProcessType( fileAndArgs.Item2 );
         }
 
         internal FieldScript()
@@ -90,6 +92,8 @@ namespace CsvPick
 
             return xform; 
         }
+
+
 
 
         #region Project or Flatten
@@ -185,6 +189,38 @@ namespace CsvPick
         }
         #endregion
 
+        #region Argument Parsing
+        Tuple<string,string[]> ParseForArgs( string scriptParam )
+        {
+            string [] addnParams = null;
+    
+            var idxLparen = scriptParam.IndexOf( '(' );
+            if( idxLparen > 0 )
+            {
+                var idxRparen  = scriptParam.IndexOf( ')', idxLparen );
+                if( idxRparen < 0 )
+                {
+                    throw new ArgumentException( "To supply arguments to a script " + 
+                                                 "use 'fname.cs(arg1,arg2)'" );
+        
+                }
+        
+                addnParams = scriptParam.Substring( idxLparen + 1, 
+                                                    Math.Max( 0, idxRparen - idxLparen -1 ) )
+                                        .Split( ',')
+                                        .Select( s => s.Trim() )
+                                        .Where( s => !string.IsNullOrWhiteSpace(s) )
+                                        .ToArray();
+
+                scriptParam = scriptParam.Substring( 0, idxLparen );
+        
+                if( addnParams.Length < 1 )
+                    addnParams = null;
+            }
+
+            return Tuple.Create( scriptParam, addnParams );
+        }
+        #endregion
 
         #region Compile script file
         private void CompileScript( string scriptFile )
@@ -282,7 +318,7 @@ namespace CsvPick
             return hasMethod;
         }
 
-        private void BindProcessType()
+        private void BindProcessType( string [] scriptArgs )
         {
             var types    = scriptAssy.GetExportedTypes();
 
@@ -290,7 +326,9 @@ namespace CsvPick
                                 .FirstOrDefault();
             if( multiPT != null )
             {
-                this.processInstance = Activator.CreateInstance( multiPT );
+                this.processInstance = scriptArgs != null 
+                                         ? Activator.CreateInstance( multiPT, scriptArgs )
+                                         : Activator.CreateInstance( multiPT );
                 this.useMultiProcess = true;
             }
             else
@@ -299,7 +337,9 @@ namespace CsvPick
                                     .FirstOrDefault();
                 if( singlePT != null )
                 {
-                    this.processInstance = Activator.CreateInstance( singlePT );
+                    this.processInstance = scriptArgs != null 
+                                             ? Activator.CreateInstance( singlePT, scriptArgs )
+                                             : Activator.CreateInstance( singlePT );
                     this.useMultiProcess = false;
                 }
             }
@@ -308,7 +348,9 @@ namespace CsvPick
                              .FirstOrDefault();
             if( filtT != null )
             {
-                this.filterInstance = Activator.CreateInstance( filtT );
+                this.filterInstance = scriptArgs != null 
+                                             ? Activator.CreateInstance( filtT, scriptArgs )
+                                             : Activator.CreateInstance( filtT );
             }
 
             if( this.processInstance == null && this.filterInstance == null )
